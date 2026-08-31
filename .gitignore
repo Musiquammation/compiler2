@@ -1,3 +1,5 @@
 draft/
 dist/
 programm/
+bin/
+src/DEFAULT_LOGGER_LEVELS.cpp
