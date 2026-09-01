@@ -4,7 +4,7 @@
 #include "Prototype.hpp"
 #include "Type.hpp"
 
-class Variable {
+struct Variable {
     label_t name;
     Prototype proto;
     Type* type;

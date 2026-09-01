@@ -3,16 +3,13 @@
 #include "Prototype.hpp"
 #include <map>
 
-class VariadicPrototype;
-class Class;
+struct VariadicPrototype;
+struct Class;
 
-class RealPrototype {
+struct RealPrototype {
 	int owners;
 	Class* clas;
 	int size;
 	int align;
-	std::map<VariadicPrototype*, Prototype> settings;
-	
-	
-	RealPrototype(Class* clas);
+	std::map<VariadicPrototype*, Prototype> settings;	
 };

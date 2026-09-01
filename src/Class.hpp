@@ -1,12 +1,21 @@
 #pragma once
 
+#include "Primitive.hpp"
 #include "label_t.hpp"
 
-class ClassMember;
+struct ClassMember;
+struct Primitive;
 
-class Class {
+struct Class {
 	label_t name;
 	Class* meta;
-	ClassMember* classMember;
+	ClassMember* classMembers;
+	const Primitive* primitive;
+	int classMemberLength;
+
+
+	static Class createPrimitive(const Primitive* p, label_t name);
+
+	~Class();
 };
 

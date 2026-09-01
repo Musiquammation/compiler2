@@ -1,9 +1,9 @@
 #pragma once
 
-class ClassMember;
+struct ClassMember;
 
 
-class VariadicPrototype {
+struct VariadicPrototype {
 	int owners;
 	ClassMember* member;
 };

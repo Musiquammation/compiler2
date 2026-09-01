@@ -2,8 +2,8 @@
 
 #include <variant>
 
-class RealPrototype;
-class VariadicPrototype;
+struct RealPrototype;
+struct VariadicPrototype;
 
 using Prototype = std::variant<RealPrototype*, VariadicPrototype*>;
 

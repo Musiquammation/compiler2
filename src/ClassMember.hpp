@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Class.hpp"
+#include "Prototype.hpp"
 
-class ClassMember {
+struct ClassMember {
 	label_t name;
+	Prototype proto;
 };
