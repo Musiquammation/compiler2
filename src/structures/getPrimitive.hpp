@@ -1,8 +1,6 @@
 #pragma once
 
-#include "Class.hpp"
-#include "Primitive.hpp"
-#include <map>
+#include "../label_t.hpp"
 
 struct Class;
 

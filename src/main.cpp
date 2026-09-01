@@ -1,10 +1,7 @@
-#include "Class.hpp"
-#include "ClassMember.hpp"
-#include "Logger.hpp"
-#include "RealPrototype.hpp"
-#include "VariadicPrototype.hpp"
-#include "primitives.hpp"
+#include "structures/Class.hpp"
+#include "util/Logger.hpp"
 #include <cstdio>
+#include "structures/getPrimitive.hpp"
 
 int main() {
 	auto logger = getLogger("main");

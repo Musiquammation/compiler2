@@ -45,6 +45,7 @@ void Logger::error(const char* format, ...) {
 	va_end(args);
 }
 
+
 void Logger::log(
 	LoggerLevel messageLevel,
 	const char* levelName,

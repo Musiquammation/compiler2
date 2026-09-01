@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Primitive.hpp"
-#include "label_t.hpp"
+#include "../label_t.hpp"
 
 struct ClassMember;
 struct Primitive;
