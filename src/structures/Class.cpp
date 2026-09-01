@@ -1,5 +1,56 @@
 #include "Class.hpp"
 #include "ClassMember.hpp"
+#include "RealPrototype.hpp"
+#include "VariadicPrototype.hpp"
+
+#include "../util/Logger.hpp"
+#include "../util/MemoryPlacement.hpp"
+#include "../util/MemoryPlacer.hpp"
+#include "../util/MemorySize.hpp"
+
+static auto logger = getLogger("class");
+
+Class Class::create(
+	label_t name,
+	std::unique_ptr<Class> meta,
+	std::vector<ClassMemberBuilder>& members
+) {
+	MemoryPlacer placer;
+
+	size_t classMembersLength = members.size();
+	std::unique_ptr<ClassMember[]> membersArr =
+		std::make_unique<ClassMember[]>(classMembersLength);
+
+	for (size_t i = 0; i < members.size(); ++i) {
+		auto& builder = members[i];
+		MemorySize size;
+
+		std::visit([&size](const auto& proto) {
+			using T = std::decay_t<decltype(proto)>;
+
+			if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
+				logger.debug("got size %d %d", size.size, size.align);
+				size = proto->size;
+			} else if constexpr (std::is_same_v<T, std::shared_ptr<VariadicPrototype>>) {
+				size = MEMORY_SIZE_UNKNOWN;
+			}
+		}, builder.proto);
+
+		membersArr[i] = builder.build(MemoryPlacement{
+			.size = size,
+			.offset = placer.add(size)
+		});
+	}
+
+	return Class{
+		.name = name,
+		.meta = std::move(meta),
+		.classMembers = std::move(membersArr),
+		.primitive = nullptr,
+		.classMemberLength = classMembersLength,
+		.size = placer.evalSize()
+	};
+}
 
 Class Class::createPrimitive(const Primitive* p, label_t name) {
 	return Class{
@@ -7,13 +58,10 @@ Class Class::createPrimitive(const Primitive* p, label_t name) {
 		.meta = nullptr,
 		.classMembers = nullptr,
 		.primitive = p,
-		.classMemberLength = 0
+		.classMemberLength = 0,
+		.size = {
+			.size = p->size,
+			.align = p->size
+		}
 	};
 }
-
-Class::~Class() {
-	if (this->classMembers) {
-		delete[] this->classMembers;
-	}
-}
-
