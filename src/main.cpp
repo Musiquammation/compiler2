@@ -18,7 +18,19 @@ int main() {
 	};
 
 	auto cl_Point = Class::create("Point", nullptr, cl_Point_members);
-	logger.info("%d %d", cl_Point.size.size, cl_Point.size.align);
+
+	std::vector<ClassMemberBuilder> cl_FlatRect3D_members = {
+		ClassMemberBuilder{.name = "start", .proto = {RealPrototype::create({&cl_Point}, {})}},	
+		ClassMemberBuilder{.name = "end", .proto = {RealPrototype::create({&cl_Point}, {})}},
+		ClassMemberBuilder{.name = "z", .proto = {proto_int}},
+	};
+
+	auto cl_FlatRect3D = Class::create("FlatRect3D", nullptr, cl_FlatRect3D_members);
+
+	logger.info("FlatRect3d %d %d", cl_FlatRect3D.size.size, cl_FlatRect3D.size.align);
+
+	
+
 
 	return 0;
 }
