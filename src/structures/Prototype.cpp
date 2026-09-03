@@ -7,18 +7,19 @@
 static auto logger = getLogger("prototype");
 
 MemorySize Prototype::getQuickSize() const {
-	MemorySize size;
-
-	std::visit([&size](const auto& proto) {
+	return std::visit([](const auto& proto) {
 		using T = std::decay_t<decltype(proto)>;
 
 		if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
-			logger.debug("got size %d %d", size.size, size.align);
-			size = proto->size;
-		} else if constexpr (std::is_same_v<T, std::shared_ptr<VariadicPrototype>>) {
-			size = MEMORY_SIZE_UNKNOWN;
+			logger.debug("got size %d %d", proto->size.size, proto->size.align);
+			return proto->size;
 		}
-	}, *this);
+		
+		if constexpr (std::is_same_v<T, std::shared_ptr<VariadicPrototype>>) {
+			return MEMORY_SIZE_UNKNOWN;
+		}
 
-	return size;
+		return MEMORY_SIZE_UNKNOWN;;
+	}, *this);
 }
+

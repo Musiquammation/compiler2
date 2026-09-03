@@ -19,6 +19,24 @@ struct Class {
 	size_t classMemberLength;
 	MemorySize size;
 
+	Class(){}
+
+	Class(
+		label_t name,
+		std::unique_ptr<Class> meta,
+		std::unique_ptr<ClassMember[]> classMembers,
+		const Primitive* primitive,
+		size_t classMemberLength,
+		MemorySize size
+	) :
+		name{name},
+		meta{std::move(meta)},
+		classMembers{std::move(classMembers)},
+		primitive{primitive},
+		classMemberLength{classMemberLength},
+		size{size}
+	{}
+
 	static Class create(
 		label_t name,
 		std::unique_ptr<Class> meta,

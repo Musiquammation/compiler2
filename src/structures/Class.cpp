@@ -32,23 +32,23 @@ Class Class::create(
 	}
 
 	return Class{
-		.name = name,
-		.meta = std::move(meta),
-		.classMembers = std::move(membersArr),
-		.primitive = nullptr,
-		.classMemberLength = classMembersLength,
-		.size = placer.evalSize()
+		name,
+		std::move(meta),
+		std::move(membersArr),
+		nullptr,
+		classMembersLength,
+		placer.evalSize()
 	};
 }
 
 Class Class::createPrimitive(const Primitive* p, label_t name) {
 	return Class{
-		.name = name,
-		.meta = nullptr,
-		.classMembers = nullptr,
-		.primitive = p,
-		.classMemberLength = 0,
-		.size = {
+		name,
+		nullptr,
+		nullptr,
+		p,
+		0,
+		{
 			.size = p->size,
 			.align = p->size
 		}
