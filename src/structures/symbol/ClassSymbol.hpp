@@ -5,10 +5,10 @@
 
 struct Class;
 
-struct ClassSymbol: std::variant<Class*, label_t> {
-	Class* force() const;
+struct ClassSymbol: std::variant<const Class*, label_t> {
+	const Class* force() const;
 
 	template<bool force>
-	Class* resolve();
+	const Class* resolve();
 };
 

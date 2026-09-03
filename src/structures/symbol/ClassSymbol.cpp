@@ -10,11 +10,11 @@ public:
 		StructureError(std::format("Cannot find {}", symbol)) {}
 };
 
-Class* ClassSymbol::force() const {
+const Class* ClassSymbol::force() const {
 	return std::visit([](const auto& symbol) {
 		using T = std::decay_t<decltype(symbol)>;
 
-		if constexpr (std::is_same_v<T, Class*>) {
+		if constexpr (std::is_same_v<T, const Class*>) {
 			return symbol;
 		}
 
@@ -22,16 +22,16 @@ Class* ClassSymbol::force() const {
 			throw ClassSymbolResolutionError{symbol};
 		}
 
-		return (Class*)nullptr;
+		return (const Class*)nullptr;
 	}, *this);
 }
 
 template <bool force>
-Class* ClassSymbol::resolve() {
+const Class* ClassSymbol::resolve() {
 	return std::visit([](const auto& symbol) {
 		using T = std::decay_t<decltype(symbol)>;
 
-		if constexpr (std::is_same_v<T, Class*>) {
+		if constexpr (std::is_same_v<T, const Class*>) {
 			return symbol;
 		}
 
@@ -41,15 +41,15 @@ Class* ClassSymbol::resolve() {
 			if constexpr (force) {
 				throw ClassSymbolResolutionError{symbol};
 			} else {
-				return (Class*)nullptr;
+				return (const Class*)nullptr;
 			}
 
 		}
 
-		return (Class*)nullptr;
+		return (const Class*)nullptr;
 	}, *this);
 }
 
 
-template Class* ClassSymbol::resolve<true>();
-template Class* ClassSymbol::resolve<false>();
+template const Class* ClassSymbol::resolve<true>();
+template const Class* ClassSymbol::resolve<false>();
