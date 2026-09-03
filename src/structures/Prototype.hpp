@@ -5,6 +5,12 @@
 
 struct RealPrototype;
 struct VariadicPrototype;
+struct MemorySize;
 
-using Prototype = std::variant<std::shared_ptr<RealPrototype>, std::shared_ptr<VariadicPrototype>>;
+struct Prototype: std::variant<
+	std::shared_ptr<RealPrototype>,
+	std::shared_ptr<VariadicPrototype>
+> {
+	MemorySize getQuickSize() const;
+};
 

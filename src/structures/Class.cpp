@@ -23,18 +23,7 @@ Class Class::create(
 
 	for (size_t i = 0; i < members.size(); ++i) {
 		auto& builder = members[i];
-		MemorySize size;
-
-		std::visit([&size](const auto& proto) {
-			using T = std::decay_t<decltype(proto)>;
-
-			if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
-				logger.debug("got size %d %d", size.size, size.align);
-				size = proto->size;
-			} else if constexpr (std::is_same_v<T, std::shared_ptr<VariadicPrototype>>) {
-				size = MEMORY_SIZE_UNKNOWN;
-			}
-		}, builder.proto);
+		MemorySize size = builder.proto.getQuickSize();
 
 		membersArr[i] = builder.build(MemoryPlacement{
 			.size = size,

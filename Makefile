@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -Werror -g -fsanitize=address -MMD -MP
+CFLAGS = -Wall -Werror -g -fsanitize=address -MMD -MP
 LDFLAGS = -fsanitize=address
 
 SRC_DIR = src
