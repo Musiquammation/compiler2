@@ -1,9 +1,10 @@
 #include "RealPrototype.hpp"
 #include "Class.hpp"
+#include "symbol/ClassSymbol.hpp"
 #include <memory>
 
 std::shared_ptr<RealPrototype> RealPrototype::create(
-    const Class* clas,
+    ClassSymbol clas,
     std::map<VariadicPrototype*, Prototype> settings
 ) {
     auto result = std::shared_ptr<RealPrototype>(
@@ -13,11 +14,13 @@ std::shared_ptr<RealPrototype> RealPrototype::create(
     result->clas = clas;
     result->settings = std::move(settings);
 
-    if (clas->size.isValid()) {
-        result->size = clas->size;
+    auto cl = clas.get();
+
+    if (cl->size.isValid()) {
+        result->size = cl->size;
     } else {
         /// TODO: try to eval size
-        result->size = clas->size;
+        result->size = cl->size;
     }
 
     return result;

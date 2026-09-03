@@ -50,6 +50,19 @@ const Class* ClassSymbol::resolve() {
 	}, *this);
 }
 
+const Class* ClassSymbol::get() const {
+	return std::visit([](const auto& symbol) {
+		using T = std::decay_t<decltype(symbol)>;
+
+		if constexpr (std::is_same_v<T, const Class*>) {
+			return symbol;
+		} else {
+			return (const Class*)nullptr;
+		}
+	}, *this);
+}
+
+
 
 template const Class* ClassSymbol::resolve<true>();
 template const Class* ClassSymbol::resolve<false>();

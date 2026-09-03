@@ -76,7 +76,7 @@ static const auto primitiveProtos = [] {
 
 	for (std::size_t i = 0; i < primitiveDefinitions.size(); ++i) {
 		result[i] = std::shared_ptr<RealPrototype>(
-			RealPrototype::create(&classes[i], {})
+			RealPrototype::create({&classes[i]}, {})
 		);
 	}
 
