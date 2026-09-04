@@ -4,11 +4,21 @@
 #include "ClassSymbol.hpp"
 #include "../StructureError.hpp"
 
-class ClassSymbolResolutionError : StructureError {
-public:
-	ClassSymbolResolutionError(label_t symbol):
-		StructureError(std::format("Cannot find {}", symbol)) {}
-};
+const ClassSymbol ClassSymbol::NONE = ClassSymbol((label_t)nullptr);
+
+static StructureError forceFailedError(label_t symbol) {
+	if (symbol == nullptr) {
+		return StructureError{
+			"ClassSymbolResolutionError",
+			std::format("Tried to resolve NULL symbol")
+		};
+	}
+
+	return StructureError{
+		"ClassSymbolResolutionError",
+		std::format("Symbol {} was not resolved", symbol)
+	};
+}
 
 const Class* ClassSymbol::force() const {
 	return std::visit([](const auto& symbol) {
@@ -16,13 +26,11 @@ const Class* ClassSymbol::force() const {
 
 		if constexpr (std::is_same_v<T, const Class*>) {
 			return symbol;
+		} else {
+			throw forceFailedError(symbol);
+			return (const Class*)nullptr; // unreachable
 		}
 
-		if constexpr (std::is_same_v<T, label_t>) {
-			throw ClassSymbolResolutionError{symbol};
-		}
-
-		return (const Class*)nullptr;
 	}, *this);
 }
 
@@ -39,7 +47,7 @@ const Class* ClassSymbol::resolve() {
 			/// TODO: search symbol
 
 			if constexpr (force) {
-				throw ClassSymbolResolutionError{symbol};
+				throw forceFailedError(symbol);
 			} else {
 				return (const Class*)nullptr;
 			}
@@ -62,6 +70,13 @@ const Class* ClassSymbol::get() const {
 	}, *this);
 }
 
+
+
+
+bool ClassSymbol::isNull() const {
+	return std::holds_alternative<label_t>(*this)
+		&& std::get<label_t>(*this) == nullptr;
+}
 
 
 template const Class* ClassSymbol::resolve<true>();

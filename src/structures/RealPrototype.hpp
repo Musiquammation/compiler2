@@ -19,6 +19,10 @@ struct RealPrototype {
 		std::map<VariadicPrototype*, Prototype> settings
 	);
 
+
+	ClassSymbol getMinimalClass() const;
+	std::vector<ClassMember*> followClassMembers(label_t* array, size_t length) const;
+
 private:
 	RealPrototype() = default;
 };

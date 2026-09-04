@@ -21,15 +21,27 @@ int main() {
 
 	std::vector<ClassMemberBuilder> cl_FlatRect3D_members = {
 		ClassMemberBuilder{.name = "start", .proto = {RealPrototype::create({&cl_Point}, {})}},	
+		ClassMemberBuilder{.name = "z", .proto = {proto_short}},
 		ClassMemberBuilder{.name = "end", .proto = {RealPrototype::create({&cl_Point}, {})}},
-		ClassMemberBuilder{.name = "z", .proto = {proto_int}},
 	};
 
 	auto cl_FlatRect3D = Class::create("FlatRect3D", nullptr, cl_FlatRect3D_members);
 
 	logger.info("FlatRect3d %d %d", cl_FlatRect3D.size.size, cl_FlatRect3D.size.align);
 
-	logger.debug("%s", cl_FlatRect3D.members.search("start")->name);
+	
+	// followClassMembers
+	{
+		auto proto = RealPrototype::create({&cl_FlatRect3D}, {});
+		label_t path[] = {"end", "x"};
+		auto members = proto->followClassMembers(path, sizeof(path)/sizeof(label_t));
+		logger.debug("Members:");
+		for (auto i: members) {
+			logger.debug("\t %s %2d", i->name, i->placement.offset);
+		}
+
+
+	}
 	
 
 

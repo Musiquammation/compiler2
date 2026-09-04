@@ -6,6 +6,8 @@
 struct Class;
 
 struct ClassSymbol: std::variant<const Class*, label_t> {
+	static const ClassSymbol NONE;
+
 	/**
 	 * Throws an error if symbol is not a Class
 	 */
@@ -24,5 +26,10 @@ struct ClassSymbol: std::variant<const Class*, label_t> {
 	 * @return Class* or nullptr
 	 */
 	const Class* get() const;
+
+	/**
+	 * @return true if symbol is NULL
+	 */
+	bool isNull() const;
 };
 

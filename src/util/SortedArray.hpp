@@ -24,7 +24,7 @@ public:
 		);
 	}
 
-	T* search(const Key& key) {
+	T* search(const Key& key) const {
 		size_t left = 0;
 		size_t right = length;
 

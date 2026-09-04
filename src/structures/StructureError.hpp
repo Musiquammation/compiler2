@@ -1,17 +1,19 @@
+#pragma once
+
 #include <exception>
 #include <string>
 
-
-class StructureError: std::exception {
+class StructureError: public std::exception {
 private:
 	std::string message;
 
 public:
-	StructureError(const std::string& message): message(message) {}
+	StructureError(const char* kind, const std::string& message);
 
-	const char* what() const noexcept override {
-		return message.c_str();
-	}
+	const char* what() const noexcept override;
 };
 
-
+StructureError createStructureError(
+	const char* kind,
+	const std::string& message
+);
