@@ -7,32 +7,70 @@
 #include "structures/getPrimitive.hpp"
 
 int main() {
+	struct {
+		Class Point;
+		Class FlatRect3D;
+		Class Type;
+		Class Pair_meta;
+		Class Pair;
+	} cl;
+
 	auto logger = getLogger("main");
 
 	auto proto_int = getPrimitiveProto("int");
 	auto proto_short = getPrimitiveProto("short");
+	auto proto_size_t = getPrimitiveProto("size_t");
 
-	std::vector<ClassMemberBuilder> cl_Point_members = {
-		ClassMemberBuilder{.name = "x", .proto = {proto_int}},	
-		ClassMemberBuilder{.name = "y", .proto = {proto_int}},
-	};
+	// Point
+	{
+		std::vector<ClassMemberBuilder> members = {
+			{.name = "x", .proto = {proto_int}},
+			{.name = "y", .proto = {proto_int}},
+		};
 
-	auto cl_Point = Class::create("Point", nullptr, cl_Point_members);
+		cl.Point = Class::create("Point", nullptr, members);
+	}
 
-	std::vector<ClassMemberBuilder> cl_FlatRect3D_members = {
-		ClassMemberBuilder{.name = "start", .proto = {RealPrototype::create({&cl_Point}, {})}},	
-		ClassMemberBuilder{.name = "z", .proto = {proto_short}},
-		ClassMemberBuilder{.name = "end", .proto = {RealPrototype::create({&cl_Point}, {})}},
-	};
+	// FlatRect3D
+	{
+		std::vector<ClassMemberBuilder> members = {
+			{
+				.name = "start",
+				.proto = {
+					RealPrototype::create({&cl.Point}, {})
+				}
+			},
+			{
+				.name = "z",
+				.proto = {proto_short}
+			},
+			{
+				.name = "end",
+				.proto = {
+					RealPrototype::create({&cl.Point}, {})
+				}
+			},
+		};
 
-	auto cl_FlatRect3D = Class::create("FlatRect3D", nullptr, cl_FlatRect3D_members);
+		cl.FlatRect3D = Class::create("FlatRect3D", nullptr, members);
 
-	logger.info("FlatRect3d %d %d", cl_FlatRect3D.size.size, cl_FlatRect3D.size.align);
+		logger.info(
+			"FlatRect3d %d %d",
+			cl.FlatRect3D.size.size,
+			cl.FlatRect3D.size.align
+		);
+	}
+
+	// Pair_meta
+	{
+
+	}
+
 
 	
 	// followClassMembers
 	{
-		auto proto = RealPrototype::create({&cl_FlatRect3D}, {});
+		auto proto = RealPrototype::create({&cl.FlatRect3D}, {});
 		label_t path[] = {"end", "x"};
 		auto members = proto->followClassMembers(path, sizeof(path)/sizeof(label_t));
 		logger.debug("Members:");

@@ -29,6 +29,18 @@ static constexpr std::array<PrimitiveDefinition, 10> primitiveDefinitions{{
 	{8,  true,  true,  "float64"},
 }};
 
+#if __SIZEOF_SIZE_T__ == 1
+	#define SIZE_T_PRIMITIVE_INDEX 1
+#elif __SIZEOF_SIZE_T__ == 2
+	#define SIZE_T_PRIMITIVE_INDEX 3
+#elif __SIZEOF_SIZE_T__ == 4
+	#define SIZE_T_PRIMITIVE_INDEX 5
+#elif __SIZEOF_SIZE_T__ == 8
+	#define SIZE_T_PRIMITIVE_INDEX 7
+#else
+	#error "Unsupported size_t size"
+#endif
+
 static constexpr std::array<std::pair<std::string_view, int>, 20> primitiveAliases{{
 	{"char",   0},
 	{"byte",   1},
@@ -40,6 +52,7 @@ static constexpr std::array<std::pair<std::string_view, int>, 20> primitiveAlias
 	{"ulong",  7},
 	{"float",  8},
 	{"double", 9},
+	{"size_t", SIZE_T_PRIMITIVE_INDEX},
 }};
 
 static const auto primitives = [] {
