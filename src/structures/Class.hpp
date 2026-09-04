@@ -4,6 +4,7 @@
 #include "Primitive.hpp"
 #include "../label_t.hpp"
 #include "../util/MemorySize.hpp"
+#include "../util/SortedArray.hpp"
 #include <cstddef>
 #include <memory>
 #include <vector>
@@ -14,28 +15,32 @@ struct Primitive;
 struct Class {
 	label_t name;
 	std::unique_ptr<Class> meta;
-	std::unique_ptr<ClassMember[]> classMembers;
+	SortedArray<ClassMember, label_t, LabeledComparator<ClassMember>> members;
 	const Primitive* primitive;
-	size_t classMemberLength;
 	MemorySize size;
-
-	Class(){}
 
 	Class(
 		label_t name,
 		std::unique_ptr<Class> meta,
-		std::unique_ptr<ClassMember[]> classMembers,
-		const Primitive* primitive,
+		std::unique_ptr<ClassMember[]>& classMembers,
 		size_t classMemberLength,
+		const Primitive* primitive,
 		MemorySize size
 	) :
 		name{name},
 		meta{std::move(meta)},
-		classMembers{std::move(classMembers)},
+		members{classMembers, classMemberLength},
 		primitive{primitive},
-		classMemberLength{classMemberLength},
 		size{size}
 	{}
+
+	Class(
+		label_t name,
+		const Primitive* primitive,
+		MemorySize size
+	);
+
+	Class(){}
 
 	static Class create(
 		label_t name,

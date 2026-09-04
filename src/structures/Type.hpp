@@ -1,7 +1,8 @@
 #pragma once
 
 
+#include "Prototype.hpp"
 struct Type {
-	int owners;
 	void* data;
+	Prototype proto;
 };

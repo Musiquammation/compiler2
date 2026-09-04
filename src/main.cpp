@@ -29,6 +29,7 @@ int main() {
 
 	logger.info("FlatRect3d %d %d", cl_FlatRect3D.size.size, cl_FlatRect3D.size.align);
 
+	logger.debug("%s", cl_FlatRect3D.members.search("start")->name);
 	
 
 

@@ -1,6 +1,5 @@
 #include "Class.hpp"
 #include "ClassMember.hpp"
-#include "RealPrototype.hpp"
 #include "VariadicPrototype.hpp"
 
 #include "../util/Logger.hpp"
@@ -9,6 +8,16 @@
 #include "../util/MemorySize.hpp"
 
 static auto logger = getLogger("class");
+
+Class::Class(
+	label_t name,
+	const Primitive* primitive,
+	MemorySize size
+): 
+	name{name},
+	primitive{primitive},
+	size{size}
+{};
 
 Class Class::create(
 	label_t name,
@@ -34,9 +43,9 @@ Class Class::create(
 	return Class{
 		name,
 		std::move(meta),
-		std::move(membersArr),
-		nullptr,
+		membersArr,
 		classMembersLength,
+		nullptr,
 		placer.evalSize()
 	};
 }
@@ -44,10 +53,7 @@ Class Class::create(
 Class Class::createPrimitive(const Primitive* p, label_t name) {
 	return Class{
 		name,
-		nullptr,
-		nullptr,
 		p,
-		0,
 		{
 			.size = p->size,
 			.align = p->size

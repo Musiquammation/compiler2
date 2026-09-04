@@ -1,11 +1,9 @@
 #pragma once
 
 #include "Class.hpp"
-#include "Prototype.hpp"
-#include "Type.hpp"
+#include "QuickType.hpp"
 
 struct Variable {
     label_t name;
-    Prototype proto;
-    Type* type;
+    QuickType type;
 };
