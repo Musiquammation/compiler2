@@ -3,6 +3,7 @@
 #include "../label_t.hpp"
 #include "symbol/ClassSymbol.hpp"
 #include <memory>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -17,9 +18,15 @@ struct Prototype: std::variant<
 > {
 	
 	MemorySize getQuickSize() const;
+	MemorySize resolveSize() const;
 	ClassSymbol getMinimalClass() const;
 	std::vector<ClassMember*> followClassMembers(label_t* array, size_t length) const;
 
+	template<typename Resolver>
+	Prototype resolve(const Resolver& resolver);
+
+	static Prototype& forceResolution(std::optional<Prototype>& proto);
 };
+
 
 

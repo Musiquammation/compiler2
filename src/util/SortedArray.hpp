@@ -10,18 +10,67 @@ class SortedArray {
 	size_t length;
 
 public:
-	SortedArray(): start(nullptr), length(0) {}
+	using iterator = T*;
+	using const_iterator = const T*;
+
+	SortedArray()
+		: start(nullptr), length(0) {}
 
 	SortedArray(std::unique_ptr<T[]>& ptr, size_t length)
 		: start(std::move(ptr)), length(length) {}
 
 	SortedArray(const SortedArray& ref)
-		: start(std::make_unique<T[]>(ref.length)), length(ref.length) {
+		: start(std::make_unique<T[]>(ref.length)),
+		  length(ref.length) {
 		std::copy(
 			ref.start.get(),
 			ref.start.get() + length,
 			start.get()
 		);
+	}
+
+	SortedArray(SortedArray&&) noexcept = default;
+
+	SortedArray& operator=(const SortedArray& ref) {
+		if (this == &ref)
+			return *this;
+
+		start = std::make_unique<T[]>(ref.length);
+		length = ref.length;
+
+		std::copy(
+			ref.start.get(),
+			ref.start.get() + length,
+			start.get()
+		);
+
+		return *this;
+	}
+
+	SortedArray& operator=(SortedArray&&) noexcept = default;
+
+	iterator begin() {
+		return start.get();
+	}
+
+	iterator end() {
+		return start.get() + length;
+	}
+
+	const_iterator begin() const {
+		return start.get();
+	}
+
+	const_iterator end() const {
+		return start.get() + length;
+	}
+
+	const_iterator cbegin() const {
+		return start.get();
+	}
+
+	const_iterator cend() const {
+		return start.get() + length;
 	}
 
 	T* search(const Key& key) const {
@@ -44,22 +93,6 @@ public:
 
 		return nullptr;
 	}
-
-	SortedArray& operator=(const SortedArray& ref) {
-		if (this == &ref)
-			return *this;
-
-		start = std::make_unique<T[]>(ref.length);
-		length = ref.length;
-
-		std::copy(ref.start.get(), ref.start.get() + length, start.get());
-
-		return *this;
-	}
-
-	SortedArray(SortedArray&&) noexcept = default;
-
-	SortedArray& operator=(SortedArray&&) noexcept = default;
 };
 
 template<typename T>

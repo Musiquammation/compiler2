@@ -19,6 +19,9 @@ Class::Class(
 	size{size}
 {};
 
+
+
+
 Class Class::create(
 	label_t name,
 	std::unique_ptr<Class> meta,
@@ -32,7 +35,7 @@ Class Class::create(
 
 	for (size_t i = 0; i < members.size(); ++i) {
 		auto& builder = members[i];
-		MemorySize size = builder.proto.getQuickSize();
+		MemorySize size = builder.proto.resolveSize();
 
 		membersArr[i] = builder.build(MemoryPlacement{
 			.size = size,

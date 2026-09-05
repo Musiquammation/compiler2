@@ -12,10 +12,3 @@ StructureError::StructureError(
 const char* StructureError::what() const noexcept {
 	return message.c_str();
 }
-
-StructureError createStructureError(
-	const char* kind,
-	const std::string& message
-) {
-	return StructureError(kind, message);
-}

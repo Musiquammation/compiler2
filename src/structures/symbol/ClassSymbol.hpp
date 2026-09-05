@@ -31,5 +31,7 @@ struct ClassSymbol: std::variant<const Class*, label_t> {
 	 * @return true if symbol is NULL
 	 */
 	bool isNull() const;
+
+	const label_t getSymbol() const;
 };
 

@@ -12,13 +12,15 @@ struct ClassMember;
 struct RealPrototype {
 	ClassSymbol clas;
 	MemorySize size;
-	std::map<ClassMember*, Prototype> settings;
+	std::map<const ClassMember*, Prototype> settings;
 
 	static std::shared_ptr<RealPrototype> create(
 		ClassSymbol clas,
-		std::map<ClassMember*, Prototype> settings
+		std::map<const ClassMember*, Prototype> settings
 	);
 
+
+	std::optional<Prototype> searchVariadic(const ClassMember* member) const;
 
 	ClassSymbol getMinimalClass() const;
 	std::vector<ClassMember*> followClassMembers(label_t* array, size_t length) const;

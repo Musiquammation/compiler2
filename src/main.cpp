@@ -113,13 +113,17 @@ int main() {
 		auto proto = RealPrototype::create(
 			{&cl.Pair},
 			{
-				{T, {proto_int}}
+				{
+					T,
+					{RealPrototype::create({&cl.FlatRect3D}, {})}
+				}
 			}
 		);
 
 		std::vector<ClassMemberBuilder> members = {
 			{.name = "content", .proto = {proto}},
 		};
+
 
 		cl.IntPairWrapper = Class::create(nullptr, nullptr, members);
 		logger.debug("IntPairWrapper size=%d", cl.IntPairWrapper.size.size);

@@ -5,7 +5,7 @@
 
 std::shared_ptr<RealPrototype> RealPrototype::create(
 	ClassSymbol clas,
-	std::map<ClassMember*, Prototype> settings
+	std::map<const ClassMember*, Prototype> settings
 ) {
 	auto result = std::shared_ptr<RealPrototype>(
 		new RealPrototype()
@@ -24,6 +24,15 @@ std::shared_ptr<RealPrototype> RealPrototype::create(
 	}
 
 	return result;
+}
+
+
+std::optional<Prototype> RealPrototype::searchVariadic(const ClassMember* member) const {
+	auto it = this->settings.find(member);
+
+	return it != this->settings.end()
+		? std::optional<Prototype>{it->second}
+		: std::nullopt;
 }
 
 ClassSymbol RealPrototype::getMinimalClass() const {

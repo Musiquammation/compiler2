@@ -2,6 +2,7 @@
 #include <variant>
 
 #include "ClassSymbol.hpp"
+#include "../Class.hpp"
 #include "../StructureError.hpp"
 
 const ClassSymbol ClassSymbol::NONE = ClassSymbol((label_t)nullptr);
@@ -10,7 +11,7 @@ static StructureError forceFailedError(label_t symbol) {
 	if (symbol == nullptr) {
 		return StructureError{
 			"ClassSymbolResolutionError",
-			std::format("Tried to resolve NULL symbol")
+			"Tried to resolve NULL symbol"
 		};
 	}
 
@@ -77,6 +78,20 @@ bool ClassSymbol::isNull() const {
 	return std::holds_alternative<label_t>(*this)
 		&& std::get<label_t>(*this) == nullptr;
 }
+
+
+const label_t ClassSymbol::getSymbol() const {
+	return std::visit([](const auto& symbol) -> label_t {
+		using T = std::decay_t<decltype(symbol)>;
+
+		if constexpr (std::is_same_v<T, const Class*>) {
+			return symbol->name;
+		} else {
+			return symbol;
+		}
+	}, *this);
+}
+
 
 
 template const Class* ClassSymbol::resolve<true>();
