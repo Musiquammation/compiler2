@@ -6,17 +6,17 @@
 #include <map>
 #include <memory>
 
-struct VariadicPrototype;
+struct ClassMember;
 
 
 struct RealPrototype {
 	ClassSymbol clas;
 	MemorySize size;
-	std::map<VariadicPrototype*, Prototype> settings;
+	std::map<ClassMember*, Prototype> settings;
 
 	static std::shared_ptr<RealPrototype> create(
 		ClassSymbol clas,
-		std::map<VariadicPrototype*, Prototype> settings
+		std::map<ClassMember*, Prototype> settings
 	);
 
 

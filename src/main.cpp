@@ -1,8 +1,11 @@
 #include "structures/Class.hpp"
 #include "structures/ClassMember.hpp"
+#include "structures/Prototype.hpp"
 #include "structures/RealPrototype.hpp"
+#include "structures/VariadicPrototype.hpp"
 #include "util/Logger.hpp"
 #include <cstdio>
+#include <memory>
 #include <vector>
 #include "structures/getPrimitive.hpp"
 
@@ -11,8 +14,8 @@ int main() {
 		Class Point;
 		Class FlatRect3D;
 		Class Type;
-		Class Pair_meta;
 		Class Pair;
+		Class IntPairWrapper;
 	} cl;
 
 	auto logger = getLogger("main");
@@ -54,18 +57,43 @@ int main() {
 
 		cl.FlatRect3D = Class::create("FlatRect3D", nullptr, members);
 
-		logger.info(
+		logger.debug(
 			"FlatRect3d %d %d",
 			cl.FlatRect3D.size.size,
 			cl.FlatRect3D.size.align
 		);
 	}
 
-	// Pair_meta
+	// Type
 	{
+		std::vector<ClassMemberBuilder> members = {
+			{.name = "addr", .proto = {proto_size_t}},
+		};
 
+		cl.Type = Class::create(nullptr, nullptr, members);
 	}
 
+	// Pair
+	{
+		std::vector<ClassMemberBuilder> metaMembers = {
+			{.name = "T", .proto = {RealPrototype::create({&cl.Type}, {})}},
+		};
+
+		auto Pair_meta = std::make_unique<Class>(
+			Class::create(nullptr, nullptr, metaMembers)
+		);
+
+		auto proto = VariadicPrototype::create(
+			Pair_meta->members.search("T")
+		);
+
+		std::vector<ClassMemberBuilder> members = {
+			{.name = "mb0", .proto = {proto}},
+			{.name = "mb1", .proto = {proto}}
+		};
+
+		cl.Pair = Class::create(nullptr, std::move(Pair_meta), members);
+	}
 
 	
 	// followClassMembers
@@ -73,13 +101,31 @@ int main() {
 		auto proto = RealPrototype::create({&cl.FlatRect3D}, {});
 		label_t path[] = {"end", "x"};
 		auto members = proto->followClassMembers(path, sizeof(path)/sizeof(label_t));
-		logger.debug("Members:");
+		logger.debug("followClassMembers");
 		for (auto i: members) {
 			logger.debug("\t %s %2d", i->name, i->placement.offset);
 		}
-
-
 	}
+
+	// IntPairWrapper
+	{
+		auto T = cl.Pair.meta->members.search("T");
+		auto proto = RealPrototype::create(
+			{&cl.Pair},
+			{
+				{T, {proto_int}}
+			}
+		);
+
+		std::vector<ClassMemberBuilder> members = {
+			{.name = "content", .proto = {proto}},
+		};
+
+		cl.IntPairWrapper = Class::create(nullptr, nullptr, members);
+		logger.debug("IntPairWrapper size=%d", cl.IntPairWrapper.size.size);
+	}
+
+
 	
 
 

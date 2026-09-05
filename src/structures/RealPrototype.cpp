@@ -1,13 +1,11 @@
 #include "RealPrototype.hpp"
-#include "ClassMember.hpp"
 #include "Class.hpp"
-#include "VariadicPrototype.hpp"
 #include "symbol/ClassSymbol.hpp"
 #include <memory>
 
 std::shared_ptr<RealPrototype> RealPrototype::create(
 	ClassSymbol clas,
-	std::map<VariadicPrototype*, Prototype> settings
+	std::map<ClassMember*, Prototype> settings
 ) {
 	auto result = std::shared_ptr<RealPrototype>(
 		new RealPrototype()
