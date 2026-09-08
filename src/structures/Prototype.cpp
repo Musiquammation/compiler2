@@ -8,7 +8,10 @@
 #include "../util/Logger.hpp"
 #include "../util/MemorySize.hpp"
 #include "../util/MemoryPlacer.hpp"
+#include <format>
+#include <map>
 #include <optional>
+#include <variant>
 
 static auto logger = getLogger("prototype");
 
@@ -35,7 +38,7 @@ static MemorySize resolveProtoSize(
 		using T = std::decay_t<decltype(proto)>;
 
 		if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
-			const std::shared_ptr<RealPrototype>& rp = proto;
+			RealPrototype* rp = proto.get();
 			logger.debug("rsv_size of %s %d %d", rp->clas.getSymbol(), rp->size.size, rp->size.align);
 			if (rp->size.isValid())
 				return rp->size;
@@ -44,7 +47,7 @@ static MemorySize resolveProtoSize(
 
 			MemoryPlacer placer;
 			
-			stack.push_back(rp.get());
+			stack.push_back(rp);
 			for (const auto& member: cl->members) {
 				placer.add(resolveProtoSize(member.proto, stack));
 			}
@@ -97,10 +100,119 @@ ClassSymbol Prototype::getMinimalClass() const {
 	}, *this);
 }
 
-std::vector<ClassMember*> Prototype::followClassMembers(label_t* array, size_t length) const {
-	return std::visit([array, length](const auto& proto) {
-		return proto->followClassMembers(array, length);
-	}, *this);
+std::optional<FollowClassMembers> Prototype::followClassMembers(label_t* array, size_t length) const {
+	logger.info("followClassMembers inside '%s'", this->getMinimalClass().getSymbol());
+
+	if (length == 0)
+		return std::nullopt;
+
+	auto currentMember = this->getMinimalClass().force()->members.search(array[0]);
+	
+	if (currentMember == nullptr)
+		return std::nullopt;
+
+	std::vector<ClassMember*> members;
+	members.push_back(currentMember);
+
+	Prototype currentProto = currentMember->proto;
+	
+	std::map<const ClassMember*, Prototype> rawSettings;
+	const std::map<const ClassMember*, Prototype>* settings = std::visit(
+		[&rawSettings](const auto& proto) -> const std::map<const ClassMember*, Prototype>* {
+			using T = std::decay_t<decltype(proto)>;
+
+			if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
+				return &proto->settings;
+
+			} else {
+				return &rawSettings; // empty settings
+			}
+		},
+		*this
+	);
+
+	label_t* const lastLabel = &array[length];
+	label_t* label = &array[1];
+	while (true) {
+		logger.debug("Extracting settings of '%s' with context:", currentProto.getMinimalClass().getSymbol());
+		for (const auto& [key, value]: *settings) {
+			logger.debug("[%s=%s]", key->name, value.getMinimalClass().getSymbol());
+		}
+
+
+		// Take settings
+		{
+			std::map<const ClassMember*, Prototype> next;
+			std::visit([&next, settings, &currentProto](const auto& proto) {
+				using T = std::decay_t<decltype(proto)>;
+	
+				if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
+					RealPrototype* rp = proto.get();
+					for (const auto& [key, value]: rp->settings) {
+						bool add = std::visit([&next, &key, settings](const auto& value) {
+							using U = std::decay_t<decltype(value)>;
+	
+							if constexpr (std::is_same_v<U, std::shared_ptr<VariadicPrototype>>) {
+								auto it = settings->find(value->reference);
+								if (it != settings->end()) {
+									next.insert({key, it->second});
+								} else {
+									throw StructureError{
+										"VariadicNotResolved",
+										std::format("Cannot resolve variadic {}", value->reference->name)
+									};
+								}
+								return false;
+							}
+	
+							return true;
+						}, value);
+	
+						if (add) {
+							next.insert({key, value});
+						}
+					}
+
+				} else {
+					VariadicPrototype* vp = proto.get();
+					auto it = settings->find(vp->reference);
+					if (it != settings->end()) {
+						logger.debug("Resolve '%s' in '%s'", vp->reference->name, it->second.getMinimalClass().getSymbol());
+						currentProto = it->second;
+					} else {
+						throw StructureError{
+							"VariadicNotResolved",
+							std::format("Cannot resolve variadic {}", vp->reference->name)
+						};
+					}
+				}
+			}, currentProto);
+	
+			rawSettings = std::move(next);
+			settings = &rawSettings;
+		}
+
+		if (label >= lastLabel)
+			break;
+
+		auto cl = currentProto.getMinimalClass();
+		auto next = cl.force()->members.search(*label);
+		if (next == nullptr)
+			break;
+		
+		logger.debug("got member '%s' of '%s'", *label, currentMember->proto.getMinimalClass().getSymbol());
+		label++;
+		currentMember = next;
+		currentProto = currentMember->proto;
+		members.push_back(currentMember);
+	}
+
+
+	return {{
+		.members = members,
+		.proto = currentProto,
+		.placement = {}
+	}};
 }
 
 

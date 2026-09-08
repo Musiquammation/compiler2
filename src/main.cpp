@@ -16,6 +16,7 @@ int main() {
 		Class Type;
 		Class Pair;
 		Class IntPairWrapper;
+		Class Wrapper;
 	} cl;
 
 	auto logger = getLogger("main");
@@ -70,7 +71,7 @@ int main() {
 			{.name = "addr", .proto = {proto_size_t}},
 		};
 
-		cl.Type = Class::create(nullptr, nullptr, members);
+		cl.Type = Class::create("Type", nullptr, members);
 	}
 
 	// Pair
@@ -88,11 +89,12 @@ int main() {
 		);
 
 		std::vector<ClassMemberBuilder> members = {
-			{.name = "mb0", .proto = {proto}},
-			{.name = "mb1", .proto = {proto}}
+			{.name = "first", .proto = {proto}},
+			{.name = "second", .proto = {proto}},
+			{.name = "choosen", .proto = {proto_int}}
 		};
 
-		cl.Pair = Class::create(nullptr, std::move(Pair_meta), members);
+		cl.Pair = Class::create("Pair", std::move(Pair_meta), members);
 	}
 
 	
@@ -125,12 +127,47 @@ int main() {
 		};
 
 
-		cl.IntPairWrapper = Class::create(nullptr, nullptr, members);
+		cl.IntPairWrapper = Class::create("IntPairWrapper", nullptr, members);
 		logger.debug("IntPairWrapper size=%d", cl.IntPairWrapper.size.size);
 	}
 
+	// Wrapper
+	{
+		std::vector<ClassMemberBuilder> metaMembers = {
+			{.name = "Wrapped", .proto = {RealPrototype::create({&cl.Type}, {})}},
+		};
 
-	
+		auto Wrapper_meta = std::make_unique<Class>(
+			Class::create(nullptr, nullptr, metaMembers)
+		);
+
+		auto proto = VariadicPrototype::create(
+			Wrapper_meta->members.search("Wrapped")
+		);
+
+		std::vector<ClassMemberBuilder> members = {
+			{.name = "wrap", .proto = {proto}},
+		};
+
+		cl.Wrapper = Class::create("Wrapper", std::move(Wrapper_meta), members);
+	}
+
+	// TODO: followClassMembers with size
+	// test followClassMembers
+	{
+		auto p = RealPrototype::create({&cl.Wrapper}, {
+			{cl.Wrapper.meta->members.search("Wrapped"), {RealPrototype::create({&cl.IntPairWrapper}, {})}}
+		});
+		label_t array[] = {"wrap", "content", "second", "start"};
+		auto f = Prototype{p}.followClassMembers(array, sizeof(array)/sizeof(label_t));
+		if (f.has_value()) {
+			logger.debug("%s %d", f->proto.getMinimalClass().getSymbol(), f->members.size());
+		} else {
+			logger.debug("Failed");
+		}
+	}
+
+
 
 
 	return 0;
