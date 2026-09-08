@@ -11,6 +11,29 @@ enum class LoggerLevel {
 };
 
 class Logger {
+	class Tabulator {
+	public:
+		Tabulator(Tabulator&& other) noexcept;
+		Tabulator(const Tabulator&) = delete;
+
+		Tabulator& operator=(Tabulator&& other) noexcept;
+		Tabulator& operator=(const Tabulator&) = delete;
+
+		~Tabulator();
+
+		void add();
+		void remove();
+		void reset();
+
+	private:
+		friend class Logger;
+
+		explicit Tabulator(int tabs);
+
+		std::size_t stackIndex;
+		bool active;
+	};
+
 public:
 	Logger(const std::string& key, LoggerLevel level);
 
@@ -18,6 +41,13 @@ public:
 	void info(const char* format, ...);
 	void warn(const char* format, ...);
 	void error(const char* format, ...);
+
+	void debug(std::string data);
+	void info(std::string data);
+	void warn(std::string data);
+	void error(std::string data);
+
+	static Tabulator tabulator();
 
 private:
 	std::string key;
@@ -29,6 +59,13 @@ private:
 		const char* levelName,
 		const char* format,
 		va_list args
+	);
+
+	// Log a message.
+	void log(
+		LoggerLevel messageLevel,
+		const char* levelName,
+		const std::string& data
 	);
 };
 

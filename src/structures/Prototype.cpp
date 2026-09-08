@@ -102,6 +102,8 @@ ClassSymbol Prototype::getMinimalClass() const {
 
 std::optional<FollowClassMembers> Prototype::followClassMembers(label_t* array, size_t length) const {
 	logger.info("followClassMembers inside '%s'", this->getMinimalClass().getSymbol());
+	auto tabulator = Logger::tabulator();
+	tabulator.add();
 
 	if (length == 0)
 		return std::nullopt;
@@ -134,10 +136,12 @@ std::optional<FollowClassMembers> Prototype::followClassMembers(label_t* array, 
 	label_t* const lastLabel = &array[length];
 	label_t* label = &array[1];
 	while (true) {
-		logger.debug("Extracting settings of '%s' with context:", currentProto.getMinimalClass().getSymbol());
+		logger.debug("Extracting settings of '%s'", currentProto.getMinimalClass().getSymbol());
+		tabulator.add();
 		for (const auto& [key, value]: *settings) {
 			logger.debug("[%s=%s]", key->name, value.getMinimalClass().getSymbol());
 		}
+		tabulator.remove();
 
 
 		// Take settings
