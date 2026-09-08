@@ -90,8 +90,8 @@ int main() {
 
 		std::vector<ClassMemberBuilder> members = {
 			{.name = "first", .proto = {proto}},
+			{.name = "choosen", .proto = {proto_short}},
 			{.name = "second", .proto = {proto}},
-			{.name = "choosen", .proto = {proto_int}}
 		};
 
 		cl.Pair = Class::create("Pair", std::move(Pair_meta), members);
@@ -123,6 +123,7 @@ int main() {
 		);
 
 		std::vector<ClassMemberBuilder> members = {
+			{.name = "madePadding", .proto = {proto_short}},
 			{.name = "content", .proto = {proto}},
 		};
 
@@ -158,10 +159,17 @@ int main() {
 		auto p = RealPrototype::create({&cl.Wrapper}, {
 			{cl.Wrapper.meta->members.search("Wrapped"), {RealPrototype::create({&cl.IntPairWrapper}, {})}}
 		});
-		label_t array[] = {"wrap", "content", "second", "start"};
+		label_t array[] = {"wrap", "content"};
 		auto f = Prototype{p}.followClassMembers(array, sizeof(array)/sizeof(label_t));
 		if (f.has_value()) {
-			logger.debug("%s %d", f->proto.getMinimalClass().getSymbol(), f->members.size());
+			logger.debug(
+				"%s %d | %d %d %d",
+				f->proto.getMinimalClass().getSymbol(),
+				f->members.size(),
+				f->placement.size.size,
+				f->placement.size.align,
+				f->placement.offset
+			);
 		} else {
 			logger.debug("Failed");
 		}

@@ -6,6 +6,7 @@
 
 template<typename T, typename Key, typename Comparator>
 class SortedArray {
+protected:
 	std::unique_ptr<T[]> start;
 	size_t length;
 
@@ -17,7 +18,16 @@ public:
 		: start(nullptr), length(0) {}
 
 	SortedArray(std::unique_ptr<T[]>& ptr, size_t length)
-		: start(std::move(ptr)), length(length) {}
+		: start(std::move(ptr)), length(length) {
+		std::sort(
+			start.get(),
+			start.get() + length,
+			[](const T& a, const T& b) {
+				return Comparator{}(a, b) < 0;
+			}
+		);
+	}
+
 
 	SortedArray(const SortedArray& ref)
 		: start(std::make_unique<T[]>(ref.length)),
@@ -99,6 +109,10 @@ template<typename T>
 struct LabeledComparator {
 	int operator()(const T& obj, label_t label) const {
 		return obj.name - label;
+	}
+
+	int operator()(const T& a, const T& b) const {
+		return a.name - b.name;
 	}
 };
 

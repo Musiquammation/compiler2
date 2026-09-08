@@ -4,7 +4,7 @@
 #include "Primitive.hpp"
 #include "../label_t.hpp"
 #include "../util/MemorySize.hpp"
-#include "../util/SortedArray.hpp"
+#include "../util/TracedSortedArray.hpp"
 #include <cstddef>
 #include <memory>
 #include <vector>
@@ -15,7 +15,7 @@ struct Primitive;
 struct Class {
 	label_t name;
 	std::unique_ptr<Class> meta;
-	SortedArray<ClassMember, label_t, LabeledComparator<ClassMember>> members;
+	TracedSortedArray<ClassMember, label_t, LabeledComparator<ClassMember>> members;
 	const Primitive* primitive;
 	MemorySize size;
 
