@@ -19,19 +19,25 @@ struct Class {
 	const Primitive* primitive;
 	MemorySize size;
 
+private:
+	bool _isEntire;
+
+public:
 	Class(
 		label_t name,
 		std::unique_ptr<Class> meta,
 		std::unique_ptr<ClassMember[]>& classMembers,
 		size_t classMemberLength,
 		const Primitive* primitive,
-		MemorySize size
-	) :
+		MemorySize size,
+		bool isEntire
+	):
 		name{name},
 		meta{std::move(meta)},
 		members{classMembers, classMemberLength},
 		primitive{primitive},
-		size{size}
+		size{size},
+		_isEntire{isEntire}
 	{}
 
 	Class(
@@ -41,6 +47,10 @@ struct Class {
 	);
 
 	Class(){}
+
+	bool isEntire() const {
+		return this->_isEntire;
+	}
 
 	static Class create(
 		label_t name,

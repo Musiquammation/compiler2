@@ -2,6 +2,7 @@
 #include "structures/ClassMember.hpp"
 #include "structures/Prototype.hpp"
 #include "structures/RealPrototype.hpp"
+#include "structures/Variable.hpp"
 #include "structures/VariadicPrototype.hpp"
 #include "util/Logger.hpp"
 #include <cstdio>
@@ -104,8 +105,9 @@ int main() {
 		label_t path[] = {"end", "x"};
 		auto members = proto->followClassMembers(path, sizeof(path)/sizeof(label_t));
 		logger.debug("followClassMembers");
+		auto _ = logger.tabulator();
 		for (auto i: members) {
-			logger.debug("\t %s %2d", i->name, i->placement.offset);
+			logger.debug("%s %2d", i->name, i->placement.offset);
 		}
 	}
 
@@ -123,13 +125,14 @@ int main() {
 		);
 
 		std::vector<ClassMemberBuilder> members = {
-			{.name = "madePadding", .proto = {proto_short}},
+			{.name = "pad0", .proto = {proto_short}},
 			{.name = "content", .proto = {proto}},
+			{.name = "pad1", .proto = {RealPrototype::create({&cl.Point}, {})}},
 		};
 
 
 		cl.IntPairWrapper = Class::create("IntPairWrapper", nullptr, members);
-		logger.debug("IntPairWrapper size=%d", cl.IntPairWrapper.size.size);
+		logger.debug("IntPairWrapper size=%d isEntire=%d", cl.IntPairWrapper.size.size, cl.IntPairWrapper.isEntire());
 	}
 
 	// Wrapper
@@ -156,11 +159,25 @@ int main() {
 	// TODO: followClassMembers with size
 	// test followClassMembers
 	{
-		auto p = RealPrototype::create({&cl.Wrapper}, {
+		auto rp = RealPrototype::create({&cl.Wrapper}, {
 			{cl.Wrapper.meta->members.search("Wrapped"), {RealPrototype::create({&cl.IntPairWrapper}, {})}}
 		});
-		label_t array[] = {"wrap", "content"};
-		auto f = Prototype{p}.followClassMembers(array, sizeof(array)/sizeof(label_t));
+		
+		auto v = Variable {
+			"wrapper",
+			Prototype{rp},
+			nullptr
+		};
+
+		
+		label_t array[] = {"wrap", "content", "second", "z"};
+		auto m = v.getPlacement(array, sizeof(array)/sizeof(label_t));
+		logger.debug("%d %d +%d", m.size.size, m.size.align, m.offset);
+		
+
+
+		/*
+		auto f = v.proto.followClassMembers(array, sizeof(array)/sizeof(label_t));
 		if (f.has_value()) {
 			logger.debug(
 				"%s %d | %d %d %d",
@@ -173,6 +190,7 @@ int main() {
 		} else {
 			logger.debug("Failed");
 		}
+			*/
 	}
 
 

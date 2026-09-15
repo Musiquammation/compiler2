@@ -103,6 +103,10 @@ public:
 
 		return nullptr;
 	}
+
+	size_t getLength() const {
+		return this->length;
+	}
 };
 
 template<typename T>

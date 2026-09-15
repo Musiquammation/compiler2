@@ -166,9 +166,15 @@ Logger getLogger(const std::string& key) {
 
 
 
-Logger::Tabulator Logger::tabulator() {
+Logger::Tabulator Logger::tabulator(bool add) {
 	int tabs = tabulatorStack.empty() ? 0 : tabulatorStack.back().tabs;
-	return Tabulator(tabs);
+	auto tabulator = Tabulator(tabs);
+
+	if (add) {
+		tabulator.add();
+	}
+
+	return tabulator;
 }
 
 

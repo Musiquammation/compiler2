@@ -20,9 +20,11 @@ struct Prototype: std::variant<
 	std::shared_ptr<VariadicPrototype>
 > {
 	MemorySize getQuickSize() const;
-	MemorySize resolveSize() const;
+	MemorySize evalSize() const;
 	ClassSymbol getMinimalClass() const;
 	std::optional<FollowClassMembers> followClassMembers(label_t* array, size_t length) const;
+
+	bool isEntire() const;
 
 	template<typename Resolver>
 	Prototype resolve(const Resolver& resolver);

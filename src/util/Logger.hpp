@@ -11,19 +11,21 @@ enum class LoggerLevel {
 };
 
 class Logger {
+public:
 	class Tabulator {
-	public:
+		friend Logger;
 		Tabulator(Tabulator&& other) noexcept;
 		Tabulator(const Tabulator&) = delete;
 
 		Tabulator& operator=(Tabulator&& other) noexcept;
 		Tabulator& operator=(const Tabulator&) = delete;
 
-		~Tabulator();
-
+		
+	public:
 		void add();
 		void remove();
 		void reset();
+		~Tabulator();
 
 	private:
 		friend class Logger;
@@ -34,7 +36,6 @@ class Logger {
 		bool active;
 	};
 
-public:
 	Logger(const std::string& key, LoggerLevel level);
 
 	void debug(const char* format, ...);
@@ -47,7 +48,7 @@ public:
 	void warn(std::string data);
 	void error(std::string data);
 
-	static Tabulator tabulator();
+	static Tabulator tabulator(bool add = true);
 
 private:
 	std::string key;

@@ -20,9 +20,10 @@ MemorySize Prototype::getQuickSize() const {
 		using T = std::decay_t<decltype(proto)>;
 
 		if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
-			logger.debug("qkc_size of %s %d %d", proto->clas.getSymbol(), proto->size.size, proto->size.align);
+			logger.debug("quick size of '%s' (%d %d)", proto->clas.getSymbol(), proto->size.size, proto->size.align);
 			return proto->size;
 		} else {
+			logger.warn("quick size of '%s' failed", proto->reference->name);
 			return MEMORY_SIZE_UNKNOWN;
 		}
 	}, *this);
@@ -30,7 +31,7 @@ MemorySize Prototype::getQuickSize() const {
 
 
 
-static MemorySize resolveProtoSize(
+static MemorySize evalProtoSize(
 	const Prototype& proto,
 	std::vector<const RealPrototype*>& stack
 ) {
@@ -39,21 +40,32 @@ static MemorySize resolveProtoSize(
 
 		if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
 			RealPrototype* rp = proto.get();
-			logger.debug("rsv_size of %s %d %d", rp->clas.getSymbol(), rp->size.size, rp->size.align);
-			if (rp->size.isValid())
+			if (rp->size.isValid()) {
+				logger.debug("direct  size of '%s' is (%d %d)", rp->clas.getSymbol(), rp->size.size, rp->size.align);
 				return rp->size;
+			}
 
 			auto cl = rp->clas.resolve<true>();
 
 			MemoryPlacer placer;
-			
-			stack.push_back(rp);
-			for (const auto& member: cl->members) {
-				placer.add(resolveProtoSize(member.proto, stack));
-			}
-			stack.pop_back();
 
-			return placer.evalSize();
+			logger.debug("Evaluating size of '%s'...", rp->clas.getSymbol());
+			
+			{
+				auto _ = logger.tabulator();
+				stack.push_back(rp);
+				for (const auto& member: cl->members) {
+					logger.debug("with member '%s':", member.name);
+					auto _ = logger.tabulator();
+					placer.add(evalProtoSize(member.proto, stack));
+				}
+				stack.pop_back();
+			}
+			
+
+			auto fsize = placer.evalSize();
+			logger.debug("evalued size of '%s' is (%d %d)", rp->clas.getSymbol(), fsize.size, fsize.align);
+			return fsize;
 
 		} else {
 			const ClassMember* member = proto->reference;
@@ -71,8 +83,20 @@ static MemorySize resolveProtoSize(
 
 					if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
 						std::vector<const RealPrototype*> stack{};
-						return {resolveProtoSize(foundProto, stack)};
+						logger.debug(
+							"Replacing variadic('%s') by real('%s')",
+							member->name,
+							foundProto.getMinimalClass().getSymbol()
+						);
+
+						auto _ = logger.tabulator();
+						return {evalProtoSize(foundProto, stack)};
 					} else if constexpr (std::is_same_v<T, std::shared_ptr<VariadicPrototype>>) {
+						logger.debug(
+							"Replacing variadic('%s') by variadic('%s')",
+							member->name,
+							p->reference->name
+						);
 						member = p->reference;
 						return std::nullopt;
 					}
@@ -89,9 +113,9 @@ static MemorySize resolveProtoSize(
 	}, proto);
 }
 
-MemorySize Prototype::resolveSize() const {
+MemorySize Prototype::evalSize() const {
 	std::vector<const RealPrototype*> stack{};
-	return resolveProtoSize(*this, stack);
+	return evalProtoSize(*this, stack);
 }
 
 ClassSymbol Prototype::getMinimalClass() const {
@@ -218,6 +242,20 @@ std::optional<FollowClassMembers> Prototype::followClassMembers(label_t* array, 
 		.placement = {}
 	}};
 }
+
+bool Prototype::isEntire() const {
+	return std::visit([](const auto& proto) -> bool {
+		using T = std::decay_t<decltype(proto)>;
+
+		if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
+			return proto->clas.force()->isEntire();
+		} else {
+			return false;
+		}
+
+	}, *this);
+}
+
 
 
 template<typename Resolver>

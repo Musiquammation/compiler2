@@ -10,6 +10,10 @@ int MemoryPlacer::add(MemorySize size) {
 		return -1;
 	}
 
+	// MemoryPlacer is invalid
+	if (this->offset < 0)
+		return -1;
+
 	int alignment = std::max(size.align, 1);
 
 	// Align the current offset.
