@@ -57,6 +57,7 @@ static void fillNode(
 			);
 			auto _ = logger.tabulator();
 			auto size = m->proto.getQuickSize();
+			child->cl = m->proto.forceClass();
 			child->placement.size = size;
 			child->placement.offset = placer.add(size);
 			logger.debug(
@@ -116,6 +117,7 @@ static void fillNode(
 		if (rp == nullptr) {
 			child->placement.size = MEMORY_SIZE_UNKNOWN;
 			child->placement.offset = -1;
+			child->cl = nullptr;
 			placer.add(MEMORY_SIZE_UNKNOWN);
 			continue;
 		}
@@ -157,6 +159,7 @@ static void fillNode(
 	node->placement.size = placer.evalSize();
 	node->children = std::move(children);
 	node->cl = proto->clas.force();
+	logger.debug("define %p", node->cl);
 }
 
 void Variable::resolvePlacements() {
@@ -317,8 +320,12 @@ MemoryPlacement Variable::getPlacement(label_t* array, size_t length) {
 				};
 			}
 
+			if (position->children == nullptr) {
+				goto applyEntire;
+			}
+
 			position = &position->children[index];
-			logger.debug("Take ( graph) %s (+%d)", m->name, position->placement.offset);
+			logger.debug("Take ( graph) %s.%s (+%d)", cl->name, m->name, position->placement.offset);
 			offset += position->placement.offset;
 
 			if (labelPtr == end_labelPtr - 1) {
@@ -338,7 +345,8 @@ MemoryPlacement Variable::getPlacement(label_t* array, size_t length) {
 			}
 		
 		} else if (cl->isEntire()) {
-			logger.debug("Take (direct) %s (+%d)", m->name, m->placement.offset);
+			applyEntire:
+			logger.debug("Take (direct) %s.%s (+%d)", cl->name, m->name, m->placement.offset);
 			offset += m->placement.offset;
 			cl = m->proto.getMinimalClass().force();
 

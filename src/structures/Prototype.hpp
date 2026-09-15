@@ -22,6 +22,7 @@ struct Prototype: std::variant<
 	MemorySize getQuickSize() const;
 	MemorySize evalSize() const;
 	ClassSymbol getMinimalClass() const;
+	const Class* forceClass() const;
 	std::optional<FollowClassMembers> followClassMembers(label_t* array, size_t length) const;
 
 	bool isEntire() const;

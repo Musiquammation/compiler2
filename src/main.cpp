@@ -170,7 +170,7 @@ int main() {
 		};
 
 		
-		label_t array[] = {"wrap", "content", "second", "z"};
+		label_t array[] = {"wrap", "content", "second", "start", "y"};
 		auto m = v.getPlacement(array, sizeof(array)/sizeof(label_t));
 		logger.debug("%d %d +%d", m.size.size, m.size.align, m.offset);
 		

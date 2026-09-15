@@ -8,6 +8,7 @@
 #include "../util/Logger.hpp"
 #include "../util/MemorySize.hpp"
 #include "../util/MemoryPlacer.hpp"
+#include <cstddef>
 #include <format>
 #include <map>
 #include <optional>
@@ -121,6 +122,18 @@ MemorySize Prototype::evalSize() const {
 ClassSymbol Prototype::getMinimalClass() const {
 	return std::visit([](const auto& proto) {
 		return proto->getMinimalClass();
+	}, *this);
+}
+
+const Class* Prototype::forceClass() const {
+	return std::visit([](const auto& proto) -> const Class* {
+		using T = std::decay_t<decltype(proto)>;
+
+		if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
+			return  proto->clas.force();
+		}
+
+		return nullptr;
 	}, *this);
 }
 
