@@ -7,6 +7,9 @@
 #include "../util/MemoryPlacer.hpp"
 #include "../util/MemorySize.hpp"
 #include <format>
+#include <memory>
+#include <optional>
+#include <vector>
 
 static auto logger = getLogger("class");
 
@@ -24,22 +27,72 @@ Class::Class(
 
 
 
-Class Class::create(
-	label_t name,
-	std::unique_ptr<Class> meta,
-	std::vector<ClassMemberBuilder>& members
-) {
+Class Class::createPrimitive(const Primitive* p, label_t name) {
+	return Class{
+		name,
+		p,
+		{
+			.size = p->size,
+			.align = p->size
+		}
+	};
+}
+
+
+
+
+std::unique_ptr<Class> ClassBuilder::build() const {
 	logger.debug("Create '%s'", name);
 	auto _ = logger.tabulator();
 	MemoryPlacer placer;
 
-	size_t classMembersLength = members.size();
+	size_t classMembersLength = this->members.size();
 	std::unique_ptr<ClassMember[]> membersArr =
 		std::make_unique<ClassMember[]>(classMembersLength);
 
+
+
+	// Fill metaBuilder
+	std::unique_ptr<Class> metaClass;
+	{
+		std::vector<ClassMemberBuilder> members;
+		members.reserve(this->members.size());
+		for (auto& i: this->members) {
+			auto builder = i.getMeta();
+			if (!builder.has_value()) {continue;}
+
+			members.push_back(std::move(*builder));
+		}
+
+
+		const ClassBuilder* meta = this->meta;
+		if (meta || !members.empty()) {
+			ClassBuilder builder = {
+				.name = nullptr,
+				.members = std::move(members),
+				.meta = meta ? meta->meta : nullptr
+			};
+
+			// Add members of the meta
+			if (meta) {
+				builder.members.insert(
+					members.begin(),
+					meta->members.begin(),
+					meta->members.end()
+				);
+			}
+			metaClass = builder.build();
+		} else {
+			metaClass = nullptr;
+		}
+	}
+
+
+
 	bool isEntire = true;
-	for (size_t i = 0; i < members.size(); ++i) {
-		auto& builder = members[i];
+	// Fill our members
+	for (size_t i = 0; i < this->members.size(); ++i) {
+		auto builder = this->members[i].subBuild(metaClass.get());
 		logger.debug("getting '%s'", builder.name);
 		auto _ = logger.tabulator();
 
@@ -85,24 +138,13 @@ Class Class::create(
 		}
 	}
 
-	return Class{
-		name,
-		std::move(meta),
+	return std::make_unique<Class>(Class{
+		this->name,
+		std::move(metaClass),
 		membersArr,
 		classMembersLength,
 		nullptr,
 		placer.evalSize(),
 		isEntire
-	};
-}
-
-Class Class::createPrimitive(const Primitive* p, label_t name) {
-	return Class{
-		name,
-		p,
-		{
-			.size = p->size,
-			.align = p->size
-		}
-	};
+	});
 }

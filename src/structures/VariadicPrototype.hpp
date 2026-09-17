@@ -26,3 +26,9 @@ struct VariadicPrototype {
 		ClassMember* reference
 	);
 };
+
+struct VariadicPrototypeBuilder {
+	label_t name;
+
+	std::shared_ptr<VariadicPrototype> build(const Class* source) const;
+};

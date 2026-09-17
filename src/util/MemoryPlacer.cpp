@@ -1,5 +1,7 @@
 #include "MemoryPlacer.hpp"
 #include <algorithm>
+#include <exception>
+#include <stdexcept>
 
 int MemoryPlacer::add(MemorySize size) {
 	// If the incoming size is invalid, invalidate the internal state and return -1.
@@ -35,6 +37,14 @@ MemorySize MemoryPlacer::evalSize() const {
 	// If the size is invalid, return MEMORY_SIZE_UNKNOWN.
 	if (size < 0 || align < 0) {
 		return MEMORY_SIZE_UNKNOWN;
+	}
+
+	if (this->align == 0) {
+		if (this->size == 0 && this->offset == 0) {
+			return {0, 0};
+		}
+
+		throw std::runtime_error("Corrupted evalSize");
 	}
 
 	// Align the final size to the maximum alignment.

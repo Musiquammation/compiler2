@@ -12,12 +12,12 @@
 
 int main() {
 	struct {
-		Class Point;
-		Class FlatRect3D;
-		Class Type;
-		Class Pair;
-		Class IntPairWrapper;
-		Class Wrapper;
+		std::unique_ptr<Class> Point;
+		std::unique_ptr<Class> FlatRect3D;
+		std::unique_ptr<Class> Type;
+		std::unique_ptr<Class> Pair;
+		std::unique_ptr<Class> IntPairWrapper;
+		std::unique_ptr<Class> Wrapper;
 	} cl;
 
 	auto logger = getLogger("main");
@@ -29,11 +29,12 @@ int main() {
 	// Point
 	{
 		std::vector<ClassMemberBuilder> members = {
-			{.name = "x", .proto = {proto_int}},
-			{.name = "y", .proto = {proto_int}},
+			{.name = "x", .proto = Prototype{proto_int}},
+			{.name = "y", .proto = Prototype{proto_int}},
 		};
 
-		cl.Point = Class::create("Point", nullptr, members);
+		ClassBuilder builder = {"Point", std::move(members), nullptr};
+		cl.Point = builder.build();
 	}
 
 	// FlatRect3D
@@ -41,67 +42,68 @@ int main() {
 		std::vector<ClassMemberBuilder> members = {
 			{
 				.name = "start",
-				.proto = {
-					RealPrototype::create({&cl.Point}, {})
+				.proto = Prototype{
+					RealPrototype::create({cl.Point.get()}, {})
 				}
 			},
 			{
 				.name = "z",
-				.proto = {proto_short}
+				.proto = Prototype{proto_short}
 			},
 			{
 				.name = "end",
-				.proto = {
-					RealPrototype::create({&cl.Point}, {})
+				.proto = Prototype{
+					{RealPrototype::create({cl.Point.get()}, {})}
 				}
 			},
 		};
 
-		cl.FlatRect3D = Class::create("FlatRect3D", nullptr, members);
+		ClassBuilder builder = {"FlatRect3D", std::move(members), nullptr};
+		cl.FlatRect3D = builder.build();
 
 		logger.debug(
 			"FlatRect3d %d %d",
-			cl.FlatRect3D.size.size,
-			cl.FlatRect3D.size.align
+			cl.FlatRect3D->size.size,
+			cl.FlatRect3D->size.align
 		);
 	}
 
 	// Type
 	{
 		std::vector<ClassMemberBuilder> members = {
-			{.name = "addr", .proto = {proto_size_t}},
+			{.name = "addr", .proto = Prototype{proto_size_t}},
 		};
 
-		cl.Type = Class::create("Type", nullptr, members);
+		ClassBuilder builder = {"Type", std::move(members), nullptr};
+		cl.Type = builder.build();
 	}
 
 	// Pair
 	{
-		std::vector<ClassMemberBuilder> metaMembers = {
-			{.name = "T", .proto = {RealPrototype::create({&cl.Type}, {})}},
-		};
+		std::vector<ClassMemberBuilder> metaMembers = {{
+			.name = "T",
+			.proto = Prototype{RealPrototype::create({cl.Type.get()}, {})}
+		},};
 
-		auto Pair_meta = std::make_unique<Class>(
-			Class::create(nullptr, nullptr, metaMembers)
-		);
+		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
 
-		auto proto = VariadicPrototype::create(
-			Pair_meta->members.search("T")
-		);
+		/// TODO: fix that
+		auto proto = VariadicPrototypeBuilder{"T"};
 
 		std::vector<ClassMemberBuilder> members = {
-			{.name = "first", .proto = {proto}},
-			{.name = "choosen", .proto = {proto_short}},
-			{.name = "second", .proto = {proto}},
+			{.name = "first", .proto = proto},
+			{.name = "choosen", .proto = Prototype{proto_short}},
+			{.name = "second", .proto = proto},
 		};
 
-		cl.Pair = Class::create("Pair", std::move(Pair_meta), members);
+		ClassBuilder builder = {"Pair", std::move(metaMembers), &metaBuilder};
+		cl.Pair = builder.build();
 	}
 
 	
 	// followClassMembers
 	{
-		auto proto = RealPrototype::create({&cl.FlatRect3D}, {});
+		auto proto = RealPrototype::create({cl.FlatRect3D.get()}, {});
 		label_t path[] = {"end", "x"};
 		auto members = proto->followClassMembers(path, sizeof(path)/sizeof(label_t));
 		logger.debug("followClassMembers");
@@ -113,54 +115,51 @@ int main() {
 
 	// IntPairWrapper
 	{
-		auto T = cl.Pair.meta->members.search("T");
+		auto T = cl.Pair->meta->members.search("T");
 		auto proto = RealPrototype::create(
-			{&cl.Pair},
+			{cl.Pair.get()},
 			{
 				{
 					T,
-					{RealPrototype::create({&cl.FlatRect3D}, {})}
+					{RealPrototype::create({cl.FlatRect3D.get()}, {})}
 				}
 			}
 		);
 
 		std::vector<ClassMemberBuilder> members = {
-			{.name = "pad0", .proto = {proto_short}},
-			{.name = "content", .proto = {proto}},
-			{.name = "pad1", .proto = {RealPrototype::create({&cl.Point}, {})}},
+			{.name = "pad0", .proto = Prototype{proto_short}},
+			{.name = "content", .proto = Prototype{proto}},
+			{.name = "pad1", .proto = Prototype{RealPrototype::create({cl.Point.get()}, {})}},
 		};
 
-
-		cl.IntPairWrapper = Class::create("IntPairWrapper", nullptr, members);
-		logger.debug("IntPairWrapper size=%d isEntire=%d", cl.IntPairWrapper.size.size, cl.IntPairWrapper.isEntire());
+		ClassBuilder builder = {"IntPairWrapper", std::move(members), nullptr};
+		cl.IntPairWrapper = builder.build();
+		logger.debug("IntPairWrapper size=%d isEntire=%d", cl.IntPairWrapper->size.size, cl.IntPairWrapper->isEntire());
 	}
 
 	// Wrapper
 	{
 		std::vector<ClassMemberBuilder> metaMembers = {
-			{.name = "Wrapped", .proto = {RealPrototype::create({&cl.Type}, {})}},
+			{.name = "Wrapped", .proto = Prototype{RealPrototype::create({cl.Type.get()}, {})}},
 		};
+		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
 
-		auto Wrapper_meta = std::make_unique<Class>(
-			Class::create(nullptr, nullptr, metaMembers)
-		);
-
-		auto proto = VariadicPrototype::create(
-			Wrapper_meta->members.search("Wrapped")
-		);
+		/// TODO: fix that
+		auto proto = VariadicPrototypeBuilder{"Wrapped"};
 
 		std::vector<ClassMemberBuilder> members = {
 			{.name = "wrap", .proto = {proto}},
 		};
 
-		cl.Wrapper = Class::create("Wrapper", std::move(Wrapper_meta), members);
+		ClassBuilder builder = {"Wrapped", std::move(members), &metaBuilder};
+		cl.Wrapper = builder.build();
 	}
 
 	// TODO: followClassMembers with size
 	// test followClassMembers
 	{
-		auto rp = RealPrototype::create({&cl.Wrapper}, {
-			{cl.Wrapper.meta->members.search("Wrapped"), {RealPrototype::create({&cl.IntPairWrapper}, {})}}
+		auto rp = RealPrototype::create({cl.Wrapper.get()}, {
+			{cl.Wrapper->meta->members.search("Wrapped"), {RealPrototype::create({cl.IntPairWrapper.get()}, {})}}
 		});
 		
 		auto v = Variable {

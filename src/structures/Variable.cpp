@@ -231,8 +231,8 @@ MemoryPlacement Variable::getPlacement(label_t* array, size_t length) {
 				throw StructureError{
 					"UnresolvedMemberError",
 					std::format(
-						"Cannot resolve member {} from {}",
-						*labelPtr, m->name
+						"Cannot resolve member '{}' from '{}'",
+						*labelPtr, current->name
 					)
 				};
 			}

@@ -68,3 +68,15 @@ std::vector<ClassMember*> RealPrototype::followClassMembers(label_t* array, size
 }
 
 
+
+std::shared_ptr<RealPrototype> RealPrototype::buildMeta() const {
+	/// TODO: improve this method
+	auto cl = this->clas.force();
+	if (cl->meta) {
+		return RealPrototype::create({cl->meta.get()}, {});
+	}
+
+
+	return nullptr;
+}
+

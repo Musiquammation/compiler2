@@ -19,10 +19,11 @@ struct Class {
 	const Primitive* primitive;
 	MemorySize size;
 
+	friend struct ClassBuilder;
+
 private:
 	bool _isEntire;
 
-public:
 	Class(
 		label_t name,
 		std::unique_ptr<Class> meta,
@@ -40,6 +41,7 @@ public:
 		_isEntire{isEntire}
 	{}
 
+public:
 	Class(
 		label_t name,
 		const Primitive* primitive,
@@ -52,12 +54,6 @@ public:
 		return this->_isEntire;
 	}
 
-	static Class create(
-		label_t name,
-		std::unique_ptr<Class> meta,
-		std::vector<ClassMemberBuilder>& members
-	);
-
 	static Class createPrimitive(const Primitive* p, label_t name);
 
 
@@ -69,3 +65,13 @@ public:
 
 	~Class() = default;
 };
+
+struct ClassBuilder {
+	label_t name;
+	std::vector<ClassMemberBuilder> members;
+	const ClassBuilder* meta;
+
+	std::unique_ptr<Class> build() const;
+};
+
+

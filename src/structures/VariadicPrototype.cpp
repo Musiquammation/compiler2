@@ -1,6 +1,8 @@
 #include "VariadicPrototype.hpp"
 #include "StructureError.hpp"
+#include "Class.hpp"
 #include "symbol/ClassSymbol.hpp"
+#include <format>
 #include <memory>
 
 static StructureError errorTodo(const char* message) {
@@ -33,4 +35,31 @@ std::shared_ptr<VariadicPrototype> VariadicPrototype::create(
 
 std::shared_ptr<VariadicPrototype> VariadicPrototype::create(ClassMember* reference) {
 	return std::make_shared<VariadicPrototype>(reference);
+}
+
+
+std::shared_ptr<VariadicPrototype> VariadicPrototypeBuilder::build(const Class* source) const {
+	if (source == nullptr) {
+		throw StructureError{
+			"VariadicCreationNullScope",
+			std::format(
+				"Tried to search variadic member {} in null class",
+				this->name
+			)
+		};
+	}
+
+	auto ref = source->members.search(this->name);
+	if (ref == nullptr) {
+		throw StructureError{
+			"VariadicReferenceNotResolved",
+			std::format(
+				"Could not find variadic member {} inside {}",
+				this->name,
+				source->name
+			)
+		};
+	}
+
+	return VariadicPrototype::create(ref);
 }
