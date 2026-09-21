@@ -1,6 +1,6 @@
-CC = g++
-CFLAGS = -std=c++20 -Wall -Werror -g -fsanitize=address -MMD -MP
-LDFLAGS = -fsanitize=address
+CXX = g++
+CXXFLAGS = -std=c++23 -Wall -Werror -g -fsanitize=address -MMD -MP
+LDFLAGS = -fsanitize=address -rdynamic -lstdc++exp
 
 SRC_DIR = src
 BIN_DIR = bin
@@ -16,11 +16,11 @@ ARGS = programm out
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(OBJ) -o $@ $(LDFLAGS)
+	$(CXX) $(OBJ) -o $@ $(LDFLAGS)
 
 $(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp
 	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 -include $(DEP)
 
@@ -29,4 +29,3 @@ run: all
 
 clean:
 	rm -rf $(BIN_DIR)
-

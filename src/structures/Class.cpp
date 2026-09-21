@@ -76,7 +76,7 @@ std::unique_ptr<Class> ClassBuilder::build() const {
 			// Add members of the meta
 			if (meta) {
 				builder.members.insert(
-					members.begin(),
+					builder.members.begin(),
 					meta->members.begin(),
 					meta->members.end()
 				);

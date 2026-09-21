@@ -81,14 +81,12 @@ static void fillNode(
 
 				} else {
 					const VariadicPrototype* vp = memberProto.get();
-					auto v = proto->searchVariadic(vp->reference);
-
 					auto it = settings.find(vp->reference);
 					if (it == settings.end()) {
 						throw StructureError{
 							"VariadicNotResolved",
 							std::format(
-								"Cannot resolve variadic {}",
+								"Cannot resolve variadic '{}'",
 								vp->reference->name
 							)
 						};
@@ -136,7 +134,7 @@ static void fillNode(
 					if (it == settings.end()) {
 						throw StructureError{
 							"VariadicNotResolved",
-							std::format("Cannot resolve variadic {}", p->reference->name)
+							std::format("Cannot resolve variadic '{}'", p->reference->name)
 						};
 					}
 
@@ -287,7 +285,7 @@ MemoryPlacement Variable::getPlacement(label_t* array, size_t length) {
 			throw StructureError{
 				"UnresolvedMemberError",
 				std::format(
-					"Cannot resolve member {} from {}",
+					"Cannot resolve member '{}' from '{}'",
 					*labelPtr,
 					cl->name
 				)

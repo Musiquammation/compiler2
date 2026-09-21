@@ -17,47 +17,49 @@ ClassMember ClassMemberSubBuilder::build(MemoryPlacement placement) {
 
 std::optional<ClassMemberBuilder> ClassMemberBuilder::getMeta() const {
 	using Ret = std::optional<std::variant<Prototype, VariadicPrototypeBuilder>>;
-	auto proto = std::visit([](const auto& proto) -> Ret {
-		using T = std::decay_t<decltype(proto)>;
 
-		if constexpr (std::is_same_v<T, Prototype>) {
-			return std::visit([](const auto& proto) -> Ret {
-				using T = std::decay_t<decltype(proto)>;
+	std::shared_ptr<VariadicPrototype>* vp = nullptr;
+	Ret proto;
 
-				if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
-					auto m = proto->buildMeta();
-					if (m == nullptr)
-						return std::nullopt;
+	if (std::holds_alternative<Prototype>(this->proto)) {
+		auto& p = std::get<Prototype>(this->proto);
 
-					return Prototype{m};
+		if (std::holds_alternative<std::shared_ptr<RealPrototype>>(p)) {
+			auto& rp = std::get<std::shared_ptr<RealPrototype>>(p);
 
-				} else {
-					throw StructureError{
-						"TODO",
-						std::format("Asked meta of variadic")
-					};
+			auto m = rp->buildMeta();
+			if (m == nullptr)
+				return std::nullopt;
 
-				}
-			}, proto);
-
-		} else {
-			throw StructureError{
-				"TODO",
-				std::format("Asked meta of variadic (builder)")
-			};
+			proto = Prototype{m};
+			goto handle_vp;
 		}
-		
-	}, this->proto);
+
+		// vp = &std::get<std::shared_ptr<VariadicPrototype>>(p);
+		throw StructureError{
+			"TODO",
+			std::format("Asked meta of variadic")
+		};
+		goto handle_vp;
+	}
+
+	// VariadicPrototypeBuilder
+	handle_vp:
+	if (vp != nullptr) {
+		throw StructureError{
+			"TODO",
+			std::format("Asked meta of variadic")
+		};
+	}
 
 	if (proto.has_value()) {
 		return ClassMemberBuilder{
 			.name = this->name,
-			.proto = *proto,
+			.proto = std::move(proto.value()),
 		};
 	}
 
 	return std::nullopt;
-
 }
 
 ClassMemberSubBuilder ClassMemberBuilder::subBuild(const Class* source) const {

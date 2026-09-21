@@ -2,6 +2,7 @@
 #include "structures/ClassMember.hpp"
 #include "structures/Prototype.hpp"
 #include "structures/RealPrototype.hpp"
+#include "structures/StructureError.hpp"
 #include "structures/Variable.hpp"
 #include "structures/VariadicPrototype.hpp"
 #include "util/Logger.hpp"
@@ -10,7 +11,8 @@
 #include <vector>
 #include "structures/getPrimitive.hpp"
 
-int main() {
+
+void runTest(Logger& logger) {
 	struct {
 		std::unique_ptr<Class> Point;
 		std::unique_ptr<Class> FlatRect3D;
@@ -20,7 +22,6 @@ int main() {
 		std::unique_ptr<Class> Wrapper;
 	} cl;
 
-	auto logger = getLogger("main");
 
 	auto proto_int = getPrimitiveProto("int");
 	auto proto_short = getPrimitiveProto("short");
@@ -96,7 +97,7 @@ int main() {
 			{.name = "second", .proto = proto},
 		};
 
-		ClassBuilder builder = {"Pair", std::move(metaMembers), &metaBuilder};
+		ClassBuilder builder = {"Pair", std::move(members), &metaBuilder};
 		cl.Pair = builder.build();
 	}
 
@@ -140,7 +141,29 @@ int main() {
 	// Wrapper
 	{
 		std::vector<ClassMemberBuilder> metaMembers = {
-			{.name = "Wrapped", .proto = Prototype{RealPrototype::create({cl.Type.get()}, {})}},
+			{
+				.name = "Wrapped",
+				.proto = Prototype{RealPrototype::create({cl.Type.get()}, {})}
+			},
+			{
+				.name = "compiledPoint",
+				.proto = Prototype{
+					RealPrototype::create(
+						{cl.Pair.get()},
+						{
+							{
+								cl.Pair->meta->members.search("T"),
+								{
+									RealPrototype::create(
+									{cl.IntPairWrapper.get()},
+									{}
+									)
+								}
+							}
+						}
+					)
+				}
+			}
 		};
 		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
 
@@ -151,16 +174,37 @@ int main() {
 			{.name = "wrap", .proto = {proto}},
 		};
 
-		ClassBuilder builder = {"Wrapped", std::move(members), &metaBuilder};
+		ClassBuilder builder = {"Wrapper", std::move(members), &metaBuilder};
 		cl.Wrapper = builder.build();
 	}
 
 	// TODO: followClassMembers with size
 	// test followClassMembers
 	{
-		auto rp = RealPrototype::create({cl.Wrapper.get()}, {
-			{cl.Wrapper->meta->members.search("Wrapped"), {RealPrototype::create({cl.IntPairWrapper.get()}, {})}}
-		});
+		auto rp = RealPrototype::create(
+			{cl.Wrapper.get()},
+			{
+				{
+					cl.Wrapper->meta->members.search("Wrapped"),
+					{
+						RealPrototype::create(
+							{cl.Pair.get()},
+							{
+								{
+									cl.Pair->meta->members.search("T"),
+									{
+										RealPrototype::create(
+										{cl.IntPairWrapper.get()},
+										{}
+										)
+									}
+								}
+							}
+						)
+					}
+				}
+			}
+		);
 		
 		auto v = Variable {
 			"wrapper",
@@ -169,29 +213,27 @@ int main() {
 		};
 
 		
-		label_t array[] = {"wrap", "content", "second", "start", "y"};
+		label_t array[] = {"wrap", "choosen"};
 		auto m = v.getPlacement(array, sizeof(array)/sizeof(label_t));
 		logger.debug("%d %d +%d", m.size.size, m.size.align, m.offset);
-		
-
-
-		/*
-		auto f = v.proto.followClassMembers(array, sizeof(array)/sizeof(label_t));
-		if (f.has_value()) {
-			logger.debug(
-				"%s %d | %d %d %d",
-				f->proto.getMinimalClass().getSymbol(),
-				f->members.size(),
-				f->placement.size.size,
-				f->placement.size.align,
-				f->placement.offset
-			);
-		} else {
-			logger.debug("Failed");
-		}
-			*/
 	}
 
+
+
+
+}
+
+
+int main() {
+	auto logger = getLogger("main");
+
+	try {
+		runTest(logger);
+	} catch (const StructureError& e) {
+		logger.error(e.what());
+		e.printBacktrace();
+		return 1;
+	}
 
 
 

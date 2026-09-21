@@ -200,7 +200,7 @@ std::optional<FollowClassMembers> Prototype::followClassMembers(label_t* array, 
 								} else {
 									throw StructureError{
 										"VariadicNotResolved",
-										std::format("Cannot resolve variadic {}", value->reference->name)
+										std::format("Cannot resolve variadic '{}'", value->reference->name)
 									};
 								}
 								return false;
@@ -223,7 +223,7 @@ std::optional<FollowClassMembers> Prototype::followClassMembers(label_t* array, 
 					} else {
 						throw StructureError{
 							"VariadicNotResolved",
-							std::format("Cannot resolve variadic {}", vp->reference->name)
+							std::format("Cannot resolve variadic '{}'", vp->reference->name)
 						};
 					}
 				}
