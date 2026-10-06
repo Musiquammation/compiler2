@@ -1,7 +1,11 @@
 #include "RealPrototype.hpp"
 #include "Class.hpp"
+#include "Prototype.hpp"
 #include "symbol/ClassSymbol.hpp"
 #include <memory>
+#include <optional>
+
+#include "../util/Logger.hpp"
 
 std::shared_ptr<RealPrototype> RealPrototype::create(
 	ClassSymbol clas,
@@ -68,15 +72,43 @@ std::vector<ClassMember*> RealPrototype::followClassMembers(label_t* array, size
 }
 
 
-
-std::shared_ptr<RealPrototype> RealPrototype::buildMeta() const {
-	/// TODO: improve this method
+std::optional<Prototype> RealPrototype::getMeta() const {
+	/// TODO: add attributes
 	auto cl = this->clas.force();
 	if (cl->meta) {
-		return RealPrototype::create({cl->meta.get()}, {});
+		return Prototype{
+			RealPrototype::create(
+				{cl->meta.get()},
+				{}
+			)
+		};
 	}
 
-
-	return nullptr;
+	return std::nullopt;
 }
 
+Prototype RealPrototype::resolveMeta() const {
+	getLogger("x").info("Running real resolveMeta");
+
+	std::map<const ClassMember*, Prototype> settings;
+
+	for (const auto &[member, setting] : this->settings) {
+		settings.emplace(member, setting.resolveMeta());
+	}
+
+	return Prototype{
+		RealPrototype::create(
+			this->clas,
+			settings
+		)
+	};
+}
+
+bool RealPrototype::isTriviallyNoMeta() const {
+	auto cl = this->clas.force();
+	return (cl->meta == nullptr);
+}
+
+bool RealPrototype::isMetaResolutionDistinct() const {
+	return this->settings.size() > 0;
+}

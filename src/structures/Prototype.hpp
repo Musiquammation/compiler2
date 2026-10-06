@@ -9,7 +9,7 @@
 #include <vector>
 
 struct RealPrototype;
-struct VariadicPrototype;
+struct ProcResPrototype;
 struct MemorySize;
 struct ClassMember;
 
@@ -17,20 +17,22 @@ struct FollowClassMembers;
 
 struct Prototype: std::variant<
 	std::shared_ptr<RealPrototype>,
-	std::shared_ptr<VariadicPrototype>
+	std::shared_ptr<ProcResPrototype>
 > {
-	MemorySize getQuickSize() const;
-	MemorySize evalSize() const;
+	MemorySize evalQuickSize() const;
 	ClassSymbol getMinimalClass() const;
 	const Class* forceClass() const;
 	std::optional<FollowClassMembers> followClassMembers(label_t* array, size_t length) const;
 
 	bool isEntire() const;
 
-	template<typename Resolver>
-	Prototype resolve(const Resolver& resolver);
-
 	static Prototype& forceResolution(std::optional<Prototype>& proto);
+
+	MemorySize evalProtoSize(std::vector<const RealPrototype*>& stack) const;
+
+	std::optional<Prototype> getMeta() const;
+	Prototype resolveMeta() const;
+	bool isTriviallyNoMeta() const;
 };
 
 

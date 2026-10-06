@@ -69,9 +69,20 @@ public:
 struct ClassBuilder {
 	label_t name;
 	std::vector<ClassMemberBuilder> members;
-	const ClassBuilder* meta;
+	ClassBuilder* meta;
 
-	std::unique_ptr<Class> build() const;
+	std::unique_ptr<Class> build();
+
+
+	static std::unique_ptr<Class> generateClass(
+		label_t name,
+		std::unique_ptr<Class> meta,
+		std::unique_ptr<ClassMember[]>& classMembers,
+		size_t classMemberLength,
+		const Primitive* primitive,
+		MemorySize size,
+		bool isEntire
+	);
 };
 
 

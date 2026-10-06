@@ -1,9 +1,8 @@
 #include "Prototype.hpp"
-#include "ClassMember.hpp"
+#include "ProcResPrototype.hpp"
 #include "RealPrototype.hpp"
-#include "VariadicPrototype.hpp"
+#include "ClassMember.hpp"
 #include "StructureError.hpp"
-#include "VariadicPrototype.hpp"
 #include "Class.hpp"
 #include "../util/Logger.hpp"
 #include "../util/MemorySize.hpp"
@@ -16,27 +15,11 @@
 
 static auto logger = getLogger("prototype");
 
-MemorySize Prototype::getQuickSize() const {
-	return std::visit([](const auto& proto) {
-		using T = std::decay_t<decltype(proto)>;
-
-		if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
-			logger.debug("quick size of '%s' (%d %d)", proto->clas.getSymbol(), proto->size.size, proto->size.align);
-			return proto->size;
-		} else {
-			logger.warn("quick size of '%s' failed", proto->reference->name);
-			return MEMORY_SIZE_UNKNOWN;
-		}
-	}, *this);
-}
 
 
 
-static MemorySize evalProtoSize(
-	const Prototype& proto,
-	std::vector<const RealPrototype*>& stack
-) {
-	return std::visit([&stack](const auto& proto) {
+MemorySize Prototype::evalProtoSize(std::vector<const RealPrototype*>& stack) const {
+	return std::visit([&stack](const auto& proto) -> MemorySize {
 		using T = std::decay_t<decltype(proto)>;
 
 		if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
@@ -58,7 +41,7 @@ static MemorySize evalProtoSize(
 				for (const auto& member: cl->members) {
 					logger.debug("with member '%s':", member.name);
 					auto _ = logger.tabulator();
-					placer.add(evalProtoSize(member.proto, stack));
+					placer.add(member.proto.evalProtoSize(stack));
 				}
 				stack.pop_back();
 			}
@@ -69,54 +52,38 @@ static MemorySize evalProtoSize(
 			return fsize;
 
 		} else {
-			const ClassMember* member = proto->reference;
-			for (auto it = stack.rbegin(); it != stack.rend(); ++it) {
-				auto rp = *it;
-				auto foundIt = rp->settings.find(member);
-				if (foundIt == rp->settings.end()) {
-					return MEMORY_SIZE_UNKNOWN; // not found
-				}
-
-				auto& foundProto = foundIt->second;
-
-				auto result = std::visit([&member, &foundProto](const auto& p) -> std::optional<MemorySize> {
-					using T = std::decay_t<decltype(p)>;
-
-					if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
-						std::vector<const RealPrototype*> stack{};
-						logger.debug(
-							"Replacing variadic('%s') by real('%s')",
-							member->name,
-							foundProto.getMinimalClass().getSymbol()
-						);
-
-						auto _ = logger.tabulator();
-						return {evalProtoSize(foundProto, stack)};
-					} else if constexpr (std::is_same_v<T, std::shared_ptr<VariadicPrototype>>) {
-						logger.debug(
-							"Replacing variadic('%s') by variadic('%s')",
-							member->name,
-							p->reference->name
-						);
-						member = p->reference;
-						return std::nullopt;
-					}
-				}, foundProto);
-
-				if (result.has_value()) {
-					return result.value();
-				}
-
-			}
-
-			return MEMORY_SIZE_UNKNOWN;
+			auto result = proto->evalProtoSize(stack);
+			return result.has_value() ? result.value() : MEMORY_SIZE_UNKNOWN;
 		}
-	}, proto);
+	}, *this);
 }
 
-MemorySize Prototype::evalSize() const {
+std::optional<Prototype> Prototype::getMeta() const {
+	return std::visit([](auto& p) {
+		return p->getMeta();
+	}, *this);
+}
+
+Prototype Prototype::resolveMeta() const {
+	return std::visit([](auto& p) {
+		if (p->isMetaResolutionDistinct()) {
+			return p->resolveMeta();
+		}
+
+		return Prototype{p};
+	}, *this);
+}
+
+bool Prototype::isTriviallyNoMeta() const {
+	return std::visit([](auto& p) {
+		return p->isTriviallyNoMeta();
+	}, *this);
+}
+
+
+MemorySize Prototype::evalQuickSize() const {
 	std::vector<const RealPrototype*> stack{};
-	return evalProtoSize(*this, stack);
+	return this->evalProtoSize(stack);
 }
 
 ClassSymbol Prototype::getMinimalClass() const {
@@ -190,17 +157,17 @@ std::optional<FollowClassMembers> Prototype::followClassMembers(label_t* array, 
 				if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
 					RealPrototype* rp = proto.get();
 					for (const auto& [key, value]: rp->settings) {
-						bool add = std::visit([&next, &key, settings](const auto& value) {
+						bool add = std::visit([&next, &key, settings](const auto& value) -> bool {
 							using U = std::decay_t<decltype(value)>;
 	
-							if constexpr (std::is_same_v<U, std::shared_ptr<VariadicPrototype>>) {
-								auto it = settings->find(value->reference);
-								if (it != settings->end()) {
-									next.insert({key, it->second});
+							if constexpr (std::is_same_v<U, std::shared_ptr<ProcResPrototype>>) {
+								std::optional<Prototype> r = value->search(settings);
+								if (r.has_value()) {
+									next.insert({key, r.value()});
 								} else {
 									throw StructureError{
 										"VariadicNotResolved",
-										std::format("Cannot resolve variadic '{}'", value->reference->name)
+										std::format("Cannot resolve variadic '{}'", value->getSymbolPlaceholder())
 									};
 								}
 								return false;
@@ -215,17 +182,11 @@ std::optional<FollowClassMembers> Prototype::followClassMembers(label_t* array, 
 					}
 
 				} else {
-					VariadicPrototype* vp = proto.get();
-					auto it = settings->find(vp->reference);
-					if (it != settings->end()) {
-						logger.debug("Resolve '%s' in '%s'", vp->reference->name, it->second.getMinimalClass().getSymbol());
-						currentProto = it->second;
-					} else {
-						throw StructureError{
-							"VariadicNotResolved",
-							std::format("Cannot resolve variadic '{}'", vp->reference->name)
-						};
-					}
+					// ProcResPrototype* vp = proto.get();
+					throw StructureError{
+						"TODO",
+						"resolve fake vp"
+					};
 				}
 			}, currentProto);
 	
@@ -271,25 +232,6 @@ bool Prototype::isEntire() const {
 
 
 
-template<typename Resolver>
-Prototype Prototype::resolve(const Resolver& resolver) {
-	return std::visit([&resolver](const auto& proto) -> Prototype {
-		using T = std::decay_t<decltype(proto)>;
-
-		if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
-			return {proto};
-
-		} else {
-			std::optional<Prototype> def = resolver.searchVariadic(proto->reference);
-			if (def.has_value())
-				return {def.value()};
-			
-			return {proto};
-		}
-
-
-	}, *this);
-}
 
 
 
@@ -307,4 +249,3 @@ Prototype& Prototype::forceResolution(std::optional<Prototype>& proto) {
 
 
 
-template Prototype Prototype::resolve(const RealPrototype& resolver);

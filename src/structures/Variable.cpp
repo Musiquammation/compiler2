@@ -5,10 +5,10 @@
 #include "../util/Logger.hpp"
 #include "Class.hpp"
 #include "ClassMember.hpp"
+#include "ProcResPrototype.hpp"
 #include "Prototype.hpp"
 #include "RealPrototype.hpp"
 #include "StructureError.hpp"
-#include "VariadicPrototype.hpp"
 #include "symbol/ClassSymbol.hpp"
 #include <cstddef>
 #include <format>
@@ -56,7 +56,7 @@ static void fillNode(
 				m->proto.getMinimalClass().getSymbol()
 			);
 			auto _ = logger.tabulator();
-			auto size = m->proto.getQuickSize();
+			auto size = m->proto.evalQuickSize();
 			child->cl = m->proto.forceClass();
 			child->placement.size = size;
 			child->placement.offset = placer.add(size);
@@ -73,39 +73,35 @@ static void fillNode(
 		auto _ = logger.tabulator();
 
 		std::shared_ptr<RealPrototype> rp = std::visit(
-			[proto, child, &placer, &settings](const auto& memberProto) {
-				using T = std::decay_t<decltype(memberProto)>;
+			[proto, child, &placer, &settings](const auto& mp) {
+				using T = std::decay_t<decltype(mp)>;
 
 				if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
-					return memberProto;
+					return mp;
 
 				} else {
-					const VariadicPrototype* vp = memberProto.get();
-					auto it = settings.find(vp->reference);
-					if (it == settings.end()) {
+					std::optional<Prototype> r = mp->search(&settings);
+					if (!r.has_value()) {
 						throw StructureError{
 							"VariadicNotResolved",
-							std::format(
-								"Cannot resolve variadic '{}'",
-								vp->reference->name
-							)
+							std::format("Cannot resolve variadic '{}'", mp->getSymbolPlaceholder())
 						};
 					}
 					auto rp = *std::get_if<
 						std::shared_ptr<RealPrototype>
-					>(&it->second);
+					>(&r.value());
 
 					
 					if (rp) {
 						logger.debug(
 							"variadic '%s' resolved in '%s'",
-							vp->reference->name,
+							mp->getSymbolPlaceholder(),
 							rp->clas.getSymbol()
 						);
 						return rp;
 					}
 
-					logger.debug("Did'nt found variadic '%s'", vp->reference->name);
+					logger.debug("Did'nt found variadic '%s'", mp->getSymbolPlaceholder());
 					return std::shared_ptr<RealPrototype>{nullptr};
 				}
 			},
@@ -130,15 +126,15 @@ static void fillNode(
 					subSettings.insert({member, {p}});
 
 				} else {
-					auto it = settings.find(p->reference);
-					if (it == settings.end()) {
+					std::optional<Prototype> r = p->search(&settings);
+					if (!r.has_value()) {
 						throw StructureError{
 							"VariadicNotResolved",
-							std::format("Cannot resolve variadic '{}'", p->reference->name)
+							std::format("Cannot resolve variadic '{}'", p->getSymbolPlaceholder())
 						};
 					}
 
-					subSettings.insert({member, it->second});
+					subSettings.insert({member, r.value()});
 				}
 			}, p);
 		}
@@ -207,8 +203,8 @@ MemoryPlacement Variable::getPlacement(label_t* array, size_t length) {
 	);
 
 
-	if (std::get_if<std::shared_ptr<VariadicPrototype>>(&this->proto)) {
-		/// TODO: handle starting with VariadicPrototype
+	if (std::get_if<std::shared_ptr<ProcResPrototype>>(&this->proto)) {
+		/// TODO: handle starting with ProcResPrototype
 		return {
 			.size = MEMORY_SIZE_UNKNOWN,
 			.offset = -1

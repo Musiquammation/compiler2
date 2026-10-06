@@ -1,12 +1,14 @@
 #pragma once
 
-#include "Prototype.hpp"
 #include "../util/MemorySize.hpp"
 #include "symbol/ClassSymbol.hpp"
 #include <map>
 #include <memory>
+#include <optional>
+#include <vector>
 
 struct ClassMember;
+struct Prototype;
 
 
 struct RealPrototype {
@@ -22,10 +24,13 @@ struct RealPrototype {
 
 	std::optional<Prototype> searchVariadic(const ClassMember* member) const;
 
-	std::shared_ptr<RealPrototype> buildMeta() const;
-
 	ClassSymbol getMinimalClass() const;
 	std::vector<ClassMember*> followClassMembers(label_t* array, size_t length) const;
+
+	std::optional<Prototype> getMeta() const;
+	Prototype resolveMeta() const;
+	bool isMetaResolutionDistinct() const;
+	bool isTriviallyNoMeta() const;
 
 private:
 	RealPrototype() = default;

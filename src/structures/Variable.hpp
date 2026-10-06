@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Class.hpp"
 #include "Prototype.hpp"
 #include "../util/MemoryPlacement.hpp"
 

@@ -1,9 +1,9 @@
 #include "structures/Class.hpp"
 #include "structures/ClassMember.hpp"
+#include "structures/ProcResPrototype.hpp"
 #include "structures/Prototype.hpp"
 #include "structures/RealPrototype.hpp"
 #include "structures/StructureError.hpp"
-#include "structures/VariadicPrototype.hpp"
 #include "util/Logger.hpp"
 #include <cstdio>
 #include <memory>
@@ -120,8 +120,7 @@ void runTest(Logger& logger) {
 
 		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
 
-		/// TODO: fix that
-		auto proto = VariadicPrototypeBuilder{"T"};
+		auto proto = ProcResPrototypeBuilder::variadic("T");
 
 		std::vector<ClassMemberBuilder> members = {
 			{.name = "first", .proto = proto},
@@ -199,8 +198,7 @@ void runTest(Logger& logger) {
 		};
 		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
 
-		/// TODO: fix that
-		auto proto = VariadicPrototypeBuilder{"Wrapped"};
+		auto proto = ProcResPrototypeBuilder::variadic("Wrapped");
 
 		std::vector<ClassMemberBuilder> members = {
 			{.name = "wrap", .proto = {proto}},

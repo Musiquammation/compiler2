@@ -6,5 +6,8 @@ const std::unordered_map<std::string, LoggerLevel> DEFAULT_LOGGER_LEVELS = {
 	{"class", LoggerLevel::DEBUG},
 	{"prototype", LoggerLevel::DEBUG},
 	{"variable", LoggerLevel::DEBUG},
+	{"procres", LoggerLevel::DEBUG},
+	{"procedures-variadic", LoggerLevel::DEBUG},
+	{"procedures-friendVariadic", LoggerLevel::DEBUG},
 };
 
