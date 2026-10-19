@@ -150,10 +150,10 @@ void runTest(Logger& logger) {
 		auto T = cl.Pair->meta->members.search("T");
 		auto proto = RealPrototype::create(
 			{cl.Pair.get()},
-			{
+			std::map<const ClassMember*, Prototype>{
 				{
 					T,
-					{RealPrototype::create({cl.FlatRect3D.get()}, {})}
+					Prototype{RealPrototype::create({cl.FlatRect3D.get()}, {})}
 				}
 			}
 		);
@@ -198,6 +198,7 @@ void runTest(Logger& logger) {
 		};
 		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
 
+		// !IL MANQUE WRAP DANS LA META!
 		auto proto = ProcResPrototypeBuilder::variadic("Wrapped");
 
 		std::vector<ClassMemberBuilder> members = {
@@ -205,9 +206,13 @@ void runTest(Logger& logger) {
 		};
 
 		ClassBuilder builder = {"Wrapper", std::move(members), &metaBuilder};
+		logger.debug("Building Wrapper");
 		cl.Wrapper = builder.build();
+		cl.Wrapper->describe(logger);
 	}
 
+
+	logger.debug("TEST FINISHED");
 }
 
 

@@ -89,12 +89,12 @@ bool ProcResPrototype::isTriviallyNoMeta() const {
 
 
 PEClassMember PEClassMemberBuilder::build(
-	const ClassMember* metaMembers,
+	classMembers_ct metaMembers,
 	size_t metaMembersLength
 ) const {
 	for (size_t i = 0; i < metaMembersLength; i++) {
-		if (metaMembers[i].name == this->name) {
-			return {&metaMembers[i]};
+		if (metaMembers[i]->name == this->name) {
+			return {metaMembers[i]};
 		}
 	}
 
@@ -102,12 +102,12 @@ PEClassMember PEClassMemberBuilder::build(
 }
 
 PEMetaClassMember PEMetaClassMemberBuilder::build(
-	const ClassMember* constructingMembers,
+	classMembers_ct constructingMembers,
 	size_t constructingMembersLength
 ) const {
 	for (size_t i = 0; i < constructingMembersLength; ++i) {
-		if (constructingMembers[i].name == this->name) {
-			return {&constructingMembers[i]};
+		if (constructingMembers[i]->name == this->name) {
+			return {constructingMembers[i]};
 		}
 	}
 

@@ -3,5 +3,5 @@
 const poolBase_t poolBase = {
     .variadic = "variadic",
     .friendVariadic = "friendVariadic",
-    .friendMeta = "friendMeta",
+    .metaVariadic = "metaVariadic",
 };

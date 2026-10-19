@@ -19,6 +19,7 @@ public:
 
 	SortedArray(std::unique_ptr<T[]>& ptr, size_t length)
 		: start(std::move(ptr)), length(length) {
+
 		std::sort(
 			start.get(),
 			start.get() + length,
@@ -28,10 +29,10 @@ public:
 		);
 	}
 
-
 	SortedArray(const SortedArray& ref)
 		: start(std::make_unique<T[]>(ref.length)),
 		  length(ref.length) {
+
 		std::copy(
 			ref.start.get(),
 			ref.start.get() + length,
@@ -120,3 +121,13 @@ struct LabeledComparator {
 	}
 };
 
+template<typename T>
+struct PointeredLabeledComparator {
+	int operator()(const T* obj, label_t label) const {
+		return obj->name - label;
+	}
+
+	int operator()(const T* a, const T* b) const {
+		return a->name - b->name;
+	}
+};

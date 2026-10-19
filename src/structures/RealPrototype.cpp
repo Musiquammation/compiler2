@@ -5,7 +5,6 @@
 #include <memory>
 #include <optional>
 
-#include "../util/Logger.hpp"
 
 std::shared_ptr<RealPrototype> RealPrototype::create(
 	ClassSymbol clas,
@@ -50,11 +49,13 @@ std::vector<ClassMember*> RealPrototype::followClassMembers(label_t* array, size
 	if (length == 0)
 		return members;
 
-	auto currentMember = this->clas.force()->members.search(array[0]);
+	auto currentMember = (
+		this->clas.force()->members.search(array[0])
+	);
 	
 	if (currentMember == nullptr)
 		return members;
-
+	
 	members.push_back(currentMember);
 
 	for (size_t i = 1; i < length; i++) {
@@ -88,8 +89,6 @@ std::optional<Prototype> RealPrototype::getMeta() const {
 }
 
 Prototype RealPrototype::resolveMeta() const {
-	getLogger("x").info("Running real resolveMeta");
-
 	std::map<const ClassMember*, Prototype> settings;
 
 	for (const auto &[member, setting] : this->settings) {

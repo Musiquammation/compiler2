@@ -126,9 +126,20 @@ namespace variadic {
 	}
 
 	std::optional<Prototype> getMeta(Entries entries) {
-		throw StructureError{
-			"ProcedureUndefined",
-			"Cannot call getMeta on variadic"
+		auto mb = entries.get<PEMetaClassMember>(0);
+		auto fv = getProcedure(poolBase.metaVariadic);
+
+		return Prototype{
+			std::make_shared<ProcResPrototype>(
+				ProcResPrototype{
+					.proc = {
+						.procedure = fv,
+						.entries = {
+							PEClassMember{mb.member}
+						}
+					}
+				}
+			)
 		};
 	}
 
@@ -229,9 +240,6 @@ namespace friendVariadic {
 	}
 
 	std::optional<Prototype> getMeta(Entries entries) {
-		logger.warn("Returning nullopt on friendVariadic.getMeta");
-		return std::nullopt;
-
 		throw StructureError{
 			"ProcedureUndefined",
 			"Cannot call resolveMeta on friendVariadic"
@@ -246,6 +254,105 @@ namespace friendVariadic {
 	}
 }
 
+namespace metaVariadic {
+	static auto logger = getLogger("procedures-metaVariadic");
+
+	static constexpr int args = 1;
+
+	std::optional<MemorySize> evalProtoSize(Entries entries, Stack& stack) {
+		const ClassMember* member = entries.get<PEClassMember>(0).member;
+		for (auto it = stack.rbegin(); it != stack.rend(); ++it) {
+			auto rp = *it;
+			auto foundIt = rp->settings.find(member);
+			if (foundIt == rp->settings.end()) {
+				return MEMORY_SIZE_UNKNOWN; // not found
+			}
+
+			auto& foundProto = foundIt->second;
+
+			using M = std::optional<MemorySize>;
+			auto result = std::visit([&member, &foundProto](const auto& p) -> M {
+				using T = std::decay_t<decltype(p)>;
+
+				if constexpr (std::is_same_v<T, std::shared_ptr<RealPrototype>>) {
+					std::vector<const RealPrototype*> stack{};
+					logger.debug(
+						"Replacing variadic('%s') by real('%s')",
+						member->name,
+						foundProto.getMinimalClass().getSymbol()
+					);
+
+					auto _ = logger.tabulator();
+					auto meta = foundProto.getMeta();
+					return (
+						meta.has_value() ?
+						M{meta->evalProtoSize(stack)} :
+						std::nullopt
+					);
+				} else {
+					auto reference = p->getReferencedMember();
+					logger.debug(
+						"Replacing variadic('%s') by variadic('%s')",
+						member->name,
+						reference->name
+					);
+					member = reference;
+					return std::nullopt;
+				}
+			}, foundProto);
+
+			if (result.has_value()) {
+				return result.value();
+			}
+		}
+
+		return MEMORY_SIZE_UNKNOWN;
+	}
+	
+	ClassSymbol minimalClass(Entries entries) {
+		return ClassSymbol::NONE;
+	}
+	
+	label_t getSymbolPlaceholder(Entries entries) {
+		return entries.get<PEClassMember>(0).member->name;
+	}
+
+	const ClassMember* getReferencedMember(Entries entries) {
+		throw StructureError{
+			"TODO",
+			"friendVariadic::getReferencedMember"
+		};
+	}
+
+	std::optional<Prototype> search(
+		Entries entries,
+		const std::map<const ClassMember *, Prototype>* settings
+	) {
+		auto member = entries.get<PEClassMember>(0).member;
+		auto it = settings->find(member);
+		if (it == settings->end())
+			return std::nullopt;
+
+		return it->second;
+	}
+
+	std::optional<Prototype> getMeta(Entries entries) {
+		logger.warn("Returning nullopt on metaVariadic.getMeta");
+		return std::nullopt;
+
+		throw StructureError{
+			"ProcedureUndefined",
+			"Cannot call resolveMeta on metaVariadic"
+		};
+	}
+
+	Prototype resolveMeta(Entries entries) {
+		throw StructureError{
+			"ProcedureUndefined",
+			"Cannot call resolveMeta on metaVariadic"
+		};
+	}
+}
 
 
 
@@ -265,7 +372,8 @@ namespace friendVariadic {
 
 const std::unordered_map<label_t, Procedure> PROCEDURES = {
 	FILL(variadic),
-	FILL(friendVariadic)
+	FILL(friendVariadic),
+	FILL(metaVariadic)
 };
 
 

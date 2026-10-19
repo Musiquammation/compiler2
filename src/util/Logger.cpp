@@ -8,6 +8,12 @@
 
 #define LOGS_PATH "dist/logs.log"
 
+static const char* LEVEL_NAMES[] = {
+	"DEBUG",
+	"INFO",
+	"WARN",
+	"ERROR"
+};
 
 namespace {
 	struct TabulatorState {
@@ -33,7 +39,7 @@ void Logger::debug(const char* format, ...) {
 	va_list args;
 	va_start(args, format);
 
-	log(LoggerLevel::DEBUG, "DEBUG", format, args);
+	log(LoggerLevel::DEBUG, format, args);
 
 	va_end(args);
 }
@@ -42,7 +48,7 @@ void Logger::info(const char* format, ...) {
 	va_list args;
 	va_start(args, format);
 
-	log(LoggerLevel::INFO, "INFO", format, args);
+	log(LoggerLevel::INFO, format, args);
 
 	va_end(args);
 }
@@ -51,7 +57,7 @@ void Logger::warn(const char* format, ...) {
 	va_list args;
 	va_start(args, format);
 
-	log(LoggerLevel::WARN, "WARN", format, args);
+	log(LoggerLevel::WARN, format, args);
 
 	va_end(args);
 }
@@ -60,33 +66,48 @@ void Logger::error(const char* format, ...) {
 	va_list args;
 	va_start(args, format);
 
-	log(LoggerLevel::ERROR, "ERROR", format, args);
+	log(LoggerLevel::ERROR, format, args);
+
+	va_end(args);
+}
+
+void Logger::print(const char* format, ...) {
+	va_list args;
+	va_start(args, format);
+
+	log(this->printedLevel, format, args);
 
 	va_end(args);
 }
 
 
 void Logger::debug(std::string data) {
-	log(LoggerLevel::DEBUG, "DEBUG", data);
+	log(LoggerLevel::DEBUG, data);
 }
 
 void Logger::info(std::string data) {
-	log(LoggerLevel::INFO, "INFO", data);
+	log(LoggerLevel::INFO, data);
 }
 
 void Logger::warn(std::string data) {
-	log(LoggerLevel::WARN, "WARN", data);
+	log(LoggerLevel::WARN, data);
 }
 
 void Logger::error(std::string data) {
-	log(LoggerLevel::ERROR, "ERROR", data);
+	log(LoggerLevel::ERROR, data);
 }
 
+void Logger::print(std::string data) {
+	log(this->printedLevel, data);
+}
+
+void Logger::setPrintLevel(LoggerLevel level) {
+	this->printedLevel = level;
+}
 
 
 void Logger::log(
 	LoggerLevel messageLevel,
-	const char* levelName,
 	const char* format,
 	va_list args
 ) {
@@ -110,7 +131,7 @@ void Logger::log(
 
 	const std::string message =
 		getTabulation() +
-		"[" + std::string(levelName) + "] " +
+		"[" + std::string(LEVEL_NAMES[(int)messageLevel]) + "] " +
 		key + ": " + buffer.data();
 
 	// Write to the console.
@@ -126,7 +147,6 @@ void Logger::log(
 
 void Logger::log(
 	LoggerLevel messageLevel,
-	const char* levelName,
 	const std::string& data
 ) {
 	// Ignore messages below the configured log level.
@@ -135,7 +155,7 @@ void Logger::log(
 
 	const std::string message =
 		getTabulation() +
-		"[" + std::string(levelName) + "] " +
+		"[" + std::string(LEVEL_NAMES[(int)messageLevel]) + "] " +
 		key + ": " + data;
 
 	// Write to the console.

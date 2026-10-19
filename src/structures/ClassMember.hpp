@@ -1,5 +1,7 @@
 #pragma once
 
+#include "classMembers_t.hpp"
+
 #include "ProcResPrototype.hpp"
 #include "Prototype.hpp"
 
@@ -24,7 +26,7 @@ struct MetaClassMember {
 struct ClassMemberSubBuilder {
 	label_t name;
 	Prototype proto;
-	ClassMember build(MemoryPlacement placement);
+	ClassMember* build(MemoryPlacement placement);
 };
 
 struct ClassMemberBuilder {
@@ -32,11 +34,9 @@ struct ClassMemberBuilder {
 	std::variant<Prototype, ProcResPrototypeBuilder> proto;
 
 	ClassMemberSubBuilder subBuild(
-		const ClassMember* members,
-		const ClassMember* metaMembers,
+		classMembers_ct members,
+		classMembers_ct metaMembers,
 		size_t membersLength,
 		size_t metaMembersLength
 	);
-
-	bool isTriviallyNoMeta() const;
 };

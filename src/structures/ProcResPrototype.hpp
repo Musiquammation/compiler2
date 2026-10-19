@@ -3,6 +3,7 @@
 #include "Procedure.hpp"
 #include "Prototype.hpp"
 #include "RealPrototype.hpp"
+#include "classMembers_t.hpp"
 #include <cstdint>
 #include <memory>
 #include <variant>
@@ -29,7 +30,7 @@ struct ProcResPrototype {
 struct PEClassMemberBuilder {
 	label_t name;
 	PEClassMember build(
-		const ClassMember* constructingMembers,
+		classMembers_ct constructingMembers,
 		size_t constructingMembersLength
 	) const;
 };
@@ -37,7 +38,7 @@ struct PEClassMemberBuilder {
 struct PEMetaClassMemberBuilder {
 	label_t name;
 	PEMetaClassMember build(
-		const ClassMember* metaMembers,
+		classMembers_ct metaMembers,
 		size_t metaMembersLength
 	) const;
 };
@@ -58,8 +59,8 @@ struct ProcResPrototypeBuilder {
 	static constexpr size_t FAKE_CONSTRUCTING_MEMBERS_LENGTH = SIZE_MAX;
 
 	struct BuildArg {
-		const ClassMember* members;
-		const ClassMember* metaMembers;
+		classMembers_ct members;
+		classMembers_ct metaMembers;
 		size_t membersLength;
 		size_t metaMembersLength;
 

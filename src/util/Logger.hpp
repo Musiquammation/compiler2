@@ -42,22 +42,26 @@ public:
 	void info(const char* format, ...);
 	void warn(const char* format, ...);
 	void error(const char* format, ...);
+	void print(const char* format, ...);
 
 	void debug(std::string data);
 	void info(std::string data);
 	void warn(std::string data);
 	void error(std::string data);
+	void print(std::string data);
+
+	void setPrintLevel(LoggerLevel level);
 
 	static Tabulator tabulator(bool add = true);
 
 private:
 	std::string key;
 	LoggerLevel level;
+	LoggerLevel printedLevel = LoggerLevel::DEBUG;
 
 	// Log a printf-style formatted message.
 	void log(
 		LoggerLevel messageLevel,
-		const char* levelName,
 		const char* format,
 		va_list args
 	);
@@ -65,7 +69,6 @@ private:
 	// Log a message.
 	void log(
 		LoggerLevel messageLevel,
-		const char* levelName,
 		const std::string& data
 	);
 };

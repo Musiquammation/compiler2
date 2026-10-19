@@ -2,7 +2,6 @@
 #include "Class.hpp"
 #include "ClassMember.hpp"
 
-#include "../util/loopPtr.hpp"
 #include "../util/Logger.hpp"
 #include "../util/MemoryPlacement.hpp"
 #include "../util/MemoryPlacer.hpp"
@@ -28,6 +27,35 @@ Class::Class(
 
 
 
+void Class::describe(Logger logger) const {
+
+	logger.print("class '%s'", this->name);
+
+	{
+		auto tab = Logger::tabulator();
+
+		logger.print("entire: %s", this->isEntire() ? "true" : "false");
+		
+		logger.print("size: %d (align: %d)", this->size.size, this->size.align);
+		logger.print("members: %zu", this->members.getLength());
+
+		{
+			auto membersTab = Logger::tabulator();
+
+			for (const auto& member : this->members) {
+				logger.print("member '%s' @%+03d", member->name, member->placement.offset);
+			}
+		}
+
+		if (this->meta) {
+			logger.print("Meta:");
+			auto _ = Logger::tabulator();
+			this->meta->describe(logger);
+		}
+
+	}
+}
+
 
 Class Class::createPrimitive(const Primitive* p, label_t name) {
 	return Class{
@@ -47,8 +75,7 @@ Class Class::createPrimitive(const Primitive* p, label_t name) {
 
 
 struct Level {
-	std::unique_ptr<ClassMember[]> ptr;
-	size_t length;
+	std::vector<ClassMember*> members;
 	MemoryPlacer placer;
 	int isEntire;
 };
@@ -61,39 +88,18 @@ static void buildMembers(
 	ClassBuilder* builder,
 	ClassBuilder* askerBuilder
 ) {
-	size_t extraMembersCount = 0;
-	// Count members with meta
-	if (askerBuilder) {
-		for (auto member: askerBuilder->members) {
-			if (!member.isTriviallyNoMeta()) {
-				extraMembersCount++;
-			}
-		}
-	}
-
 	size_t levelIdx = levels.size();
 
 	logger.debug(
-		"Level %ld (building %s, extra=%ld)",
+		"Level %ld (building)",
 		levels.size(),
-		builder ? builder->name : "[no builder]",
-		extraMembersCount
+		builder ? builder->name : "[no builder]"
 	);
 	auto _ = logger.tabulator();
 	{
-		size_t membersSize = extraMembersCount;
-		if (builder) {
-			membersSize += builder->members.size();
-		}
-		
-		logger.debug("append %ld %ld", membersSize, builder ? builder->members.size() : 0);
+		logger.debug("append %ld", builder ? builder->members.size() : 0);
 		levels.push_back({
-			.ptr = (
-				membersSize > 0 ?
-				std::make_unique_for_overwrite<ClassMember[]>(membersSize) :
-				nullptr
-			),
-			.length = 0,
+			.members = {},
 			.placer = {},
 			.isEntire = -1
 		});
@@ -101,10 +107,10 @@ static void buildMembers(
 	
 	
 	Level* metaLevel;
-	if (extraMembersCount > 0 || (builder && builder->meta)) {
+	if (builder && builder->meta) {
 		buildMembers(
 			levels, 
-			builder ? builder->meta : nullptr,
+			builder->meta,
 			builder
 		);
 		metaLevel = &levels[levelIdx+1];
@@ -122,10 +128,10 @@ static void buildMembers(
 		bool isEntire = true;
 		for (size_t i = 0; i < classMembersLength; ++i) {
 			auto sb = builder->members[i].subBuild(
-				level->ptr.get(),
-				metaLevel ? metaLevel->ptr.get() : nullptr,
+				level->members.data(),
+				metaLevel ? metaLevel->members.data() : nullptr,
 				i,
-				metaLevel ? metaLevel->length : 0
+				metaLevel ? metaLevel->members.size() : 0
 			);
 
 			logger.debug("getting '%s'", sb.name);
@@ -157,28 +163,25 @@ static void buildMembers(
 				);
 			}
 
-			level->ptr[i] = sb.build(MemoryPlacement{
-				.size = size,
-				.offset = offset
-			});
+			level->members.push_back(
+				sb.build(MemoryPlacement{
+					.size = size,
+					.offset = offset
+				})
+			);
 		}
-
-		level->length = classMembersLength;
 	}
 }
 
 static void buildMetaMembers(std::vector<Level>& levels) {
-	const size_t levelsLength = levels.size() - 1;
-	for (size_t idx = 0; idx < levelsLength; idx++) {
+	for (size_t idx = 0; idx < levels.size(); idx++) {
 		auto& level = levels[idx];
-		logger.debug("Build meta members lvl=%ld members=%ld", idx, level.length);
+		logger.debug("Build meta members lvl=%ld members=%ld", idx, level.members.size());
 		auto _ = logger.tabulator();
-		auto& target = levels[idx+1];
-		size_t t = target.length;
-		loopPtr(m, &level.ptr[0], level.length) {
+		for (auto m: level.members) {
 			logger.debug("Handle: %s", m->name);
 			auto _ = logger.tabulator();
-			auto metaOpt = m->proto.resolveMeta().getMeta();
+			auto metaOpt = m->proto.getMeta();
 			if (!metaOpt.has_value())
 				continue;
 
@@ -208,13 +211,25 @@ static void buildMetaMembers(std::vector<Level>& levels) {
 				);
 			}
 
-			auto& r = target.ptr[t++];
-			r.name = m->name;
-			r.placement = MemoryPlacement{size, offset};
-			r.proto = meta;
-		}
+			// Create the target
+			label_t name = m->name;
+			Level* target;
+			if (idx + 1 >= levels.size()) {
+				levels.push_back({
+					.members = {},
+					.placer = {},
+					.isEntire = -1
+				});
+			}
 
-		target.length = t;
+			target = &levels[idx+1];
+
+			target->members.push_back(new ClassMember{
+				.name = name,
+				.proto = meta,
+				.placement = MemoryPlacement{size, offset},
+			});
+		}
 	}
 }
 
@@ -230,11 +245,11 @@ static std::unique_ptr<Class> quickGenerateClass(
 		nullptr
 	); 
 	
+	logger.debug("Build level %ld (size: %ld)", idx, levels[idx].placer.evalSize());
 	return ClassBuilder::generateClass(
 		name,
 		std::move(meta),
-		levels[idx].ptr,
-		levels[idx].length,
+		levels[idx].members,
 		nullptr,
 		levels[idx].placer.evalSize(),
 		levels[idx].isEntire != 0
@@ -244,17 +259,15 @@ static std::unique_ptr<Class> quickGenerateClass(
 std::unique_ptr<Class> ClassBuilder::generateClass(
 	label_t name,
 	std::unique_ptr<Class> meta,
-	std::unique_ptr<ClassMember[]>& classMembers,
-	size_t classMemberLength,
+	std::vector<ClassMember *> members,
 	const Primitive* primitive,
 	MemorySize size,
 	bool isEntire
 ) {
-	return std::make_unique<Class>(Class{
+	return std::unique_ptr<Class>(new Class{
 		name,
 		std::move(meta),
-		classMembers,
-		classMemberLength,
+		members,
 		primitive,
 		size,
 		isEntire
@@ -272,3 +285,9 @@ std::unique_ptr<Class> ClassBuilder::build() {
 
 
 
+Class::~Class() {
+	// Delete members
+	for (auto i: this->members) {
+		delete i;
+	}
+}

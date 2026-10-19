@@ -39,9 +39,9 @@ MemorySize Prototype::evalProtoSize(std::vector<const RealPrototype*>& stack) co
 				auto _ = logger.tabulator();
 				stack.push_back(rp);
 				for (const auto& member: cl->members) {
-					logger.debug("with member '%s':", member.name);
+					logger.debug("with member '%s':", member->name);
 					auto _ = logger.tabulator();
-					placer.add(member.proto.evalProtoSize(stack));
+					placer.add(member->proto.evalProtoSize(stack));
 				}
 				stack.pop_back();
 			}

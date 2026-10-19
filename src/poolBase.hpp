@@ -3,5 +3,5 @@
 extern struct poolBase_t {
     const char* variadic;
     const char* friendVariadic;
-    const char* friendMeta;
+    const char* metaVariadic;
 } const poolBase;

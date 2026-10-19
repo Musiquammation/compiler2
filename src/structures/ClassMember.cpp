@@ -5,10 +5,9 @@
 #include "RealPrototype.hpp"
 
 #include <variant>
-#include "../util/Logger.hpp"
 
-ClassMember ClassMemberSubBuilder::build(MemoryPlacement placement) {
-	return ClassMember{
+ClassMember* ClassMemberSubBuilder::build(MemoryPlacement placement) {
+	return new ClassMember{
 		name,
 		std::move(proto),
 		std::move(placement)
@@ -16,12 +15,11 @@ ClassMember ClassMemberSubBuilder::build(MemoryPlacement placement) {
 }
 
 ClassMemberSubBuilder ClassMemberBuilder::subBuild(
-	const ClassMember* members,
-	const ClassMember* metaMembers,
+	classMembers_ct members,
+	classMembers_ct metaMembers,
 	size_t membersLength,
 	size_t metaMembersLength
 ) {
-	getLogger("classMember").info("azry %p", this->name);
 	return ClassMemberSubBuilder{
 		this->name,
 		std::visit(
@@ -47,16 +45,3 @@ ClassMemberSubBuilder ClassMemberBuilder::subBuild(
 		)
 	};
 }
-
-bool ClassMemberBuilder::isTriviallyNoMeta() const {
-	return std::visit([](auto& proto) -> bool {
-		using T = std::decay_t<decltype(proto)>;
-
-		if constexpr (std::is_same_v<T, Prototype>) {
-			return proto.isTriviallyNoMeta();
-		} else {
-			return false;
-		}
-	}, proto);
-}
-
