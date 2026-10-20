@@ -5,7 +5,6 @@
 #include "structures/RealPrototype.hpp"
 #include "structures/StructureError.hpp"
 #include "util/Logger.hpp"
-#include <cstdio>
 #include <memory>
 #include <vector>
 #include "structures/getPrimitive.hpp"
@@ -58,8 +57,6 @@ void runTest(Logger& logger) {
 		cl.Member = builder.build();
 	}
 
-	// Reveal
-
 
 
 
@@ -100,7 +97,19 @@ void runTest(Logger& logger) {
 			},
 		};
 
-		ClassBuilder builder = {"FlatRect3D", std::move(members), nullptr};
+		std::vector<ClassMemberBuilder> metaMembers = {{
+			.name = "isEmpty",
+			.proto = Prototype{proto_int}
+		}};
+
+
+		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
+
+		ClassBuilder builder = {
+			"FlatRect3D", 
+			std::move(members), 
+			&metaBuilder
+		};
 		cl.FlatRect3D = builder.build();
 
 		logger.debug(
@@ -108,15 +117,24 @@ void runTest(Logger& logger) {
 			cl.FlatRect3D->size.size,
 			cl.FlatRect3D->size.align
 		);
+
+
+		cl.FlatRect3D->describe(logger);
 	}
 
 
 	// Pair
 	{
-		std::vector<ClassMemberBuilder> metaMembers = {{
-			.name = "T",
-			.proto = Prototype{RealPrototype::create({cl.Type.get()}, {})}
-		}};
+		std::vector<ClassMemberBuilder> metaMembers = {
+			{
+				.name = "T",
+				.proto = Prototype{RealPrototype::create({cl.Type.get()}, {})}
+			},
+			{
+				.name = "rect",
+				.proto = Prototype{RealPrototype::create({cl.FlatRect3D.get()}, {})}
+			},
+		};
 
 		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
 
@@ -129,8 +147,12 @@ void runTest(Logger& logger) {
 		};
 
 		ClassBuilder builder = {"Pair", std::move(members), &metaBuilder};
+		logger.debug("[[[Building Pair]]]");
 		cl.Pair = builder.build();
+		cl.Pair->describe(logger);
 	}
+
+	return;
 
 	
 	// followClassMembers
@@ -206,7 +228,8 @@ void runTest(Logger& logger) {
 		};
 
 		ClassBuilder builder = {"Wrapper", std::move(members), &metaBuilder};
-		logger.debug("Building Wrapper");
+		logger.debug("[[[Building Wrapper]]]");
+
 		cl.Wrapper = builder.build();
 		cl.Wrapper->describe(logger);
 	}

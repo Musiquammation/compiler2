@@ -27,5 +27,9 @@ $(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp
 run: all
 	./$(TARGET) $(ARGS)
 
+wrun: 
+	> dist/logs.log
+	$(MAKE) run
+
 clean:
 	rm -rf $(BIN_DIR)

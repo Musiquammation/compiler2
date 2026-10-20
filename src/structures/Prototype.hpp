@@ -24,6 +24,7 @@ struct Prototype: std::variant<
 	const Class* forceClass() const;
 	std::optional<FollowClassMembers> followClassMembers(label_t* array, size_t length) const;
 
+	// Means all sub-types are known and entire
 	bool isEntire() const;
 
 	static Prototype& forceResolution(std::optional<Prototype>& proto);
