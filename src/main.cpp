@@ -4,6 +4,7 @@
 #include "structures/Prototype.hpp"
 #include "structures/RealPrototype.hpp"
 #include "structures/StructureError.hpp"
+#include "structures/Variable.hpp"
 #include "util/Logger.hpp"
 #include <memory>
 #include <vector>
@@ -147,13 +148,8 @@ void runTest(Logger& logger) {
 		};
 
 		ClassBuilder builder = {"Pair", std::move(members), &metaBuilder};
-		logger.debug("[[[Building Pair]]]");
 		cl.Pair = builder.build();
-		cl.Pair->describe(logger);
 	}
-
-	return;
-
 	
 	// followClassMembers
 	{
@@ -232,6 +228,44 @@ void runTest(Logger& logger) {
 
 		cl.Wrapper = builder.build();
 		cl.Wrapper->describe(logger);
+	}
+
+	{
+		auto rp = RealPrototype::create(
+			{cl.Wrapper.get()},
+			{
+				{
+					cl.Wrapper->meta->members.search("Wrapped"),
+					{
+						RealPrototype::create(
+							{cl.Pair.get()},
+							{
+								{
+									cl.Pair->meta->members.search("T"),
+									{
+										RealPrototype::create(
+										{cl.IntPairWrapper.get()},
+										{}
+										)
+									}
+								}
+							}
+						)
+					}
+				}
+			}
+		);
+		
+		auto v = Variable{
+			"wrapper",
+			Prototype{rp},
+			nullptr
+		};
+
+		
+		label_t array[] = {"wrap", "second"};
+		auto m = v.getPlacement(array, sizeof(array)/sizeof(label_t));
+		logger.debug("%d %d @%+d", m.size.size, m.size.align, m.offset);
 	}
 
 
