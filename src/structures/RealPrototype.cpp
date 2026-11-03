@@ -1,6 +1,7 @@
 #include "RealPrototype.hpp"
 #include "Class.hpp"
 #include "Prototype.hpp"
+#include "StructureError.hpp"
 #include "symbol/ClassSymbol.hpp"
 #include <memory>
 #include <optional>
@@ -111,3 +112,46 @@ bool RealPrototype::isTriviallyNoMeta() const {
 bool RealPrototype::isMetaResolutionDistinct() const {
 	return this->settings.size() > 0;
 }
+
+
+
+
+std::shared_ptr<RealPrototype> RealPrototypeBuilder::build(
+	classMembers_ct members,
+	classMembers_ct metaMembers,
+	size_t membersLength,
+	size_t metaMembersLength
+) {
+	std::map<const ClassMember*, Prototype> settings;
+
+	for (size_t i = 0; i < metaMembersLength; i++) {
+		auto member = metaMembers[i];
+		auto it = this->settings.find(member);
+		if (it == this->settings.end()) {
+			throw StructureError{
+				"UnresolvedSettingError",
+				std::format(
+					"Cannot resolve setting '{}' from '{}'",
+					member->name,
+					this->clas.getSymbol()
+				)
+			};
+		}
+
+		settings[member] = buildBuildableProto(
+			it->second,
+			members,
+			metaMembers,
+			membersLength,
+			metaMembersLength
+		);
+	}
+
+	return RealPrototype::create(this->clas, settings);
+}
+
+
+
+
+
+

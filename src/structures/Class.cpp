@@ -43,7 +43,12 @@ void Class::describe(Logger logger) const {
 			auto membersTab = Logger::tabulator();
 
 			for (const auto& member : this->members) {
-				logger.print("member '%s' @%+03d", member->name, member->placement.offset);
+				logger.print(
+					"member '%s' @%+03d as '%s'",
+					member->name,
+					member->placement.offset,
+					member->proto.getMinimalClass().getSymbol()
+				);
 			}
 		}
 

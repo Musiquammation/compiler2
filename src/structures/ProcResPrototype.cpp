@@ -185,3 +185,16 @@ ProcResPrototypeBuilder ProcResPrototypeBuilder::variadic(label_t member) {
 	return result;
 }
 
+
+ProcResPrototypeBuilder ProcResPrototypeBuilder::friendVariadic(label_t member) {
+	ProcResPrototypeBuilder result{
+		.procedure = getProcedure(poolBase.friendVariadic)
+	};
+
+	result.args.emplace_back(
+		PEClassMemberBuilder{member}
+	);
+
+	return result;
+}
+

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../util/MemorySize.hpp"
+#include "BuildablePrototype.hpp"
+#include "classMembers_t.hpp"
 #include "symbol/ClassSymbol.hpp"
 #include <map>
 #include <memory>
@@ -34,4 +36,16 @@ struct RealPrototype {
 
 private:
 	RealPrototype() = default;
+};
+
+struct RealPrototypeBuilder {
+	ClassSymbol clas;
+	std::map<const ClassMember*, BuildablePrototype> settings;
+
+	std::shared_ptr<RealPrototype> build(
+		classMembers_ct members,
+		classMembers_ct metaMembers,
+		size_t membersLength,
+		size_t metaMembersLength
+	);
 };

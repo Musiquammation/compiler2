@@ -1,6 +1,8 @@
+#include "structures/BuildablePrototype.hpp"
 #include "structures/Class.hpp"
 #include "structures/ClassMember.hpp"
 #include "structures/ProcResPrototype.hpp"
+#include "structures/Procedure.hpp"
 #include "structures/Prototype.hpp"
 #include "structures/RealPrototype.hpp"
 #include "structures/StructureError.hpp"
@@ -14,12 +16,13 @@
 void runTest(Logger& logger) {
 	struct {
 		std::unique_ptr<Class>
+			Variadic,
 			Type,
-			Member,
-			Reveal,
+			Pointer,
 			Point,
 			FlatRect3D,
 			Pair,
+			Integer,
 			IntPairWrapper,
 			Wrapper
 			;
@@ -28,38 +31,71 @@ void runTest(Logger& logger) {
 
 	auto proto_int = getPrimitiveProto("int");
 	auto proto_short = getPrimitiveProto("short");
+	auto proto_byte = getPrimitiveProto("byte");
 	auto proto_size_t = getPrimitiveProto("size_t");
 
 
 	// STD CLASSES
+	// Variadic
+	{
+		std::vector<ClassMemberBuilder> members = {};
+
+		ClassBuilder builder = {"Variadic", std::move(members), nullptr};
+		cl.Variadic = builder.build();
+	}
+
 	// Type
 	{
+		std::vector<ClassMemberBuilder> metaMembers = {
+			{
+				.name = "V",
+				.proto = Prototype{RealPrototype::create({cl.Variadic.get()}, {})}
+			},
+		};
+
 		std::vector<ClassMemberBuilder> members = {
 			{.name = "addr", .proto = Prototype{proto_size_t}},
 		};
 
-		ClassBuilder builder = {"Type", std::move(members), nullptr};
+		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
+
+		ClassBuilder builder = {"Type", std::move(members), &metaBuilder};
 		cl.Type = builder.build();
 	}
 
-	// Member
+	// Pointer
 	{
-		std::vector<ClassMemberBuilder> metaMembers = {{
-			.name = "M",
-			.proto = Prototype{RealPrototype::create({cl.Type.get()}, {})}
-		}};
+		auto V = cl.Type->meta->members.search("V");
+		auto proto = ProcResPrototypeBuilder::friendVariadic("T");
+
+		std::vector<ClassMemberBuilder> metaMembers = {
+			{
+				.name = "T",
+				.proto = Prototype{RealPrototype::create({cl.Variadic.get()}, {})}
+			},
+			{
+				.name = "type",
+				.proto = RealPrototypeBuilder{
+					{cl.Type.get()},
+					{
+						{V, proto}
+					}
+				}
+			},
+			{.name = "readOk", .proto = Prototype{proto_byte}},
+			{.name = "writeOk", .proto = Prototype{proto_byte}},
+		};
+
 		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
 
 		std::vector<ClassMemberBuilder> members = {
 			{.name = "addr", .proto = Prototype{proto_size_t}},
 		};
 
-		ClassBuilder builder = {"Member", std::move(members), &metaBuilder};
-		cl.Member = builder.build();
+		ClassBuilder builder = {"Pointer", std::move(members), &metaBuilder};
+		cl.Pointer = builder.build();
 	}
-
-
-
+	
 
 
 
@@ -98,18 +134,11 @@ void runTest(Logger& logger) {
 			},
 		};
 
-		std::vector<ClassMemberBuilder> metaMembers = {{
-			.name = "isEmpty",
-			.proto = Prototype{proto_int}
-		}};
-
-
-		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
 
 		ClassBuilder builder = {
 			"FlatRect3D", 
 			std::move(members), 
-			&metaBuilder
+			nullptr
 		};
 		cl.FlatRect3D = builder.build();
 
@@ -118,9 +147,6 @@ void runTest(Logger& logger) {
 			cl.FlatRect3D->size.size,
 			cl.FlatRect3D->size.align
 		);
-
-
-		cl.FlatRect3D->describe(logger);
 	}
 
 
@@ -129,7 +155,7 @@ void runTest(Logger& logger) {
 		std::vector<ClassMemberBuilder> metaMembers = {
 			{
 				.name = "T",
-				.proto = Prototype{RealPrototype::create({cl.Type.get()}, {})}
+				.proto = Prototype{RealPrototype::create({cl.Variadic.get()}, {})}
 			},
 			{
 				.name = "rect",
@@ -149,8 +175,38 @@ void runTest(Logger& logger) {
 
 		ClassBuilder builder = {"Pair", std::move(members), &metaBuilder};
 		cl.Pair = builder.build();
+		cl.Pair->describe(logger);
+	}
+
+	// Integer
+	{
+		std::vector<ClassMemberBuilder> metaMembers = {
+			{
+				.name = "value",
+				.proto = Prototype{proto_int}
+			},
+			{
+				.name = "valueIsKnown",
+				.proto = Prototype{proto_byte}
+			},
+			{
+				.name = "sign",
+				.proto = Prototype{proto_short}
+			},
+		};
+
+		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
+
+		std::vector<ClassMemberBuilder> members = {
+			{.name = "number", .proto = Prototype{proto_int}}
+		};
+
+		ClassBuilder builder = {"Integer", std::move(members), &metaBuilder};
+		cl.Integer = builder.build();
+		cl.Integer->describe(logger);
 	}
 	
+
 	// followClassMembers
 	{
 		auto proto = RealPrototype::create({cl.FlatRect3D.get()}, {});
@@ -185,6 +241,7 @@ void runTest(Logger& logger) {
 		ClassBuilder builder = {"IntPairWrapper", std::move(members), nullptr};
 		cl.IntPairWrapper = builder.build();
 		logger.debug("IntPairWrapper size=%d isEntire=%d", cl.IntPairWrapper->size.size, cl.IntPairWrapper->isEntire());
+		cl.IntPairWrapper->describe(logger);
 	}
 
 	// Wrapper
@@ -192,26 +249,11 @@ void runTest(Logger& logger) {
 		std::vector<ClassMemberBuilder> metaMembers = {
 			{
 				.name = "Wrapped",
-				.proto = Prototype{RealPrototype::create({cl.Type.get()}, {})}
+				.proto = Prototype{RealPrototype::create({cl.Variadic.get()}, {})}
 			},
 			{
 				.name = "compiledPoint",
-				.proto = Prototype{
-					RealPrototype::create(
-						{cl.Pair.get()},
-						{
-							{
-								cl.Pair->meta->members.search("T"),
-								{
-									RealPrototype::create(
-									{cl.IntPairWrapper.get()},
-									{}
-									)
-								}
-							}
-						}
-					)
-				}
+				.proto = Prototype{proto_int}
 			}
 		};
 		ClassBuilder metaBuilder = {nullptr, std::move(metaMembers), nullptr};
@@ -231,7 +273,7 @@ void runTest(Logger& logger) {
 	}
 
 	{
-		auto rp = RealPrototype::create(
+		auto wp = RealPrototype::create(
 			{cl.Wrapper.get()},
 			{
 				{
@@ -255,15 +297,15 @@ void runTest(Logger& logger) {
 				}
 			}
 		);
-		
+
 		auto v = Variable{
 			"wrapper",
-			Prototype{rp},
+			Prototype{wp},
 			nullptr
 		};
 
 		
-		label_t array[] = {"wrap", "second"};
+		label_t array[] = {"wrap"};
 		auto m = v.getPlacement(array, sizeof(array)/sizeof(label_t));
 		logger.debug("%d %d @%+d", m.size.size, m.size.align, m.offset);
 	}

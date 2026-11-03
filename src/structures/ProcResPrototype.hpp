@@ -69,4 +69,5 @@ struct ProcResPrototypeBuilder {
 	std::shared_ptr<ProcResPrototype> build(BuildArg arg);
 
 	static ProcResPrototypeBuilder variadic(label_t member);
+	static ProcResPrototypeBuilder friendVariadic(label_t member);
 };
