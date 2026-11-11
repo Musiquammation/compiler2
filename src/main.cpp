@@ -1,12 +1,14 @@
-#include "structures/BuildablePrototype.hpp"
 #include "structures/Class.hpp"
 #include "structures/ClassMember.hpp"
+#include "structures/BuildablePrototype.hpp"
+#include "structures/Function.hpp"
 #include "structures/ProcResPrototype.hpp"
 #include "structures/Procedure.hpp"
 #include "structures/Prototype.hpp"
 #include "structures/RealPrototype.hpp"
 #include "structures/StructureError.hpp"
 #include "structures/Variable.hpp"
+#include "structures/weaver/Weaver.hpp"
 #include "util/Logger.hpp"
 #include <memory>
 #include <vector>
@@ -300,14 +302,133 @@ void runTest(Logger& logger) {
 
 		auto v = Variable{
 			"wrapper",
-			Prototype{wp},
-			nullptr
+			Prototype{wp}
 		};
 
 		
 		label_t array[] = {"wrap"};
 		auto m = v.getPlacement(array, sizeof(array)/sizeof(label_t));
 		logger.debug("%d %d @%+d", m.size.size, m.size.align, m.offset);
+	}
+
+
+
+	// function test
+	{
+		auto fn = Function{
+			.args = {},
+			.ret = {ReturnType::Void{}},
+			.cname = "test"
+		};
+
+		std::ofstream stream{"out/test.c"};
+
+		Weaver weaver{fn.args, stream};
+
+		Prototype proto_Integer {RealPrototype::create({cl.Integer.get()}, {})};
+		auto a = weaver.create("a", proto_Integer, 0);
+		auto var_a = weaver.variable(a, 0);
+
+		auto meta_a = weaver.meta(a, 0);
+		auto var_meta_a = weaver.variable(meta_a, 1);
+
+		// Set a::value to 0
+		{
+			label_t members[] = {"value"};
+			auto placement = var_meta_a.getPlacement(members, 1);
+			weaver.append(Weaver::ISet{
+				.dst = {.variable = meta_a, .offset = (size_t)placement.offset},
+				.arg = 0,
+				.size = (size_t)placement.size.size
+			}, 1);
+		}
+
+		// Set a::valueIsKnown to 0
+		{
+			label_t members[] = {"valueIsKnown"};
+			auto placement = var_meta_a.getPlacement(members, 1);
+			weaver.append(Weaver::ISet{
+				.dst = {.variable = meta_a, .offset = (size_t)placement.offset},
+				.arg = 0,
+				.size = (size_t)placement.size.size
+			}, 1);
+		}
+
+		// Set a::sign to 0
+		{
+			label_t members[] = {"sign"};
+			auto placement = var_meta_a.getPlacement(members, 1);
+			weaver.append(Weaver::ISet{
+				.dst = {.variable = meta_a, .offset = (size_t)placement.offset},
+				.arg = 0,
+				.size = (size_t)placement.size.size
+			}, 1);
+		}
+
+		// Set a.number to 5
+		/*{
+			label_t members[] = {"number"};
+			auto placement = var_a.getPlacement(members, 1);
+			weaver.append(Weaver::ISet{
+				.dst = {.variable = a, .offset = (size_t)placement.offset},
+				.arg = 0,
+				.size = (size_t)placement.size.size
+			}, 0);
+		}*/
+
+
+		// Construct b = Integer{10}
+		auto b = weaver.create("b", proto_Integer, 1);
+		auto var_b = weaver.variable(b, 1);
+
+		auto meta_b = weaver.meta(b, 1);
+		auto var_meta_b = weaver.variable(meta_b, 2);
+
+
+		{
+			// Set b::value to 10
+			{
+				label_t members[] = {"value"};
+				auto placement = var_meta_b.getPlacement(members, 1);
+				weaver.append(Weaver::ISet{
+					.dst = {.variable = meta_b, .offset = (size_t)placement.offset},
+					.arg = 10,
+					.size = (size_t)placement.size.size
+				}, 2);
+			}
+			
+			// Set b::valueIsKnown to 1
+			{
+				label_t members[] = {"valueIsKnown"};
+				auto placement = var_meta_b.getPlacement(members, 1);
+				weaver.append(Weaver::ISet{
+					.dst = {.variable = meta_b, .offset = (size_t)placement.offset},
+					.arg = 1,
+					.size = (size_t)placement.size.size
+				}, 2);
+			}
+			// Set b::sign to 1
+			{
+				label_t members[] = {"sign"};
+				auto placement = var_meta_b.getPlacement(members, 1);
+				weaver.append(Weaver::ISet{
+					.dst = {.variable = meta_b, .offset = (size_t)placement.offset},
+					.arg = 1,
+					.size = (size_t)placement.size.size
+				}, 2);
+			}
+
+			// Set b.number to 10
+			{
+				label_t members[] = {"number"};
+				auto placement = var_b.getPlacement(members, 1);
+				weaver.append(Weaver::ISet{
+					.dst = {.variable = b, .offset = (size_t)placement.offset},
+					.arg = 10,
+					.size = (size_t)placement.size.size
+				}, 1);
+			}
+		}
 	}
 
 

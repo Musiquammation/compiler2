@@ -2,8 +2,8 @@
 
 #include "Prototype.hpp"
 #include "../util/MemoryPlacement.hpp"
+#include <cstddef>
 
-struct Type;
 
 class Variable {
 public:
@@ -15,17 +15,15 @@ private:
 public:
 	label_t name;
 	Prototype proto;
-	Type* type;
 
-	Variable(label_t name, Prototype proto, Type* type):
+	Variable(label_t name, Prototype proto):
 		name(name),
-		proto(proto),
-		type(type)
+		proto(proto)
 	{}
 
 	~Variable();
 
 	void resolvePlacements();
 	MemoryPlacement getPlacement(label_t* array, size_t length);
-	int getSize() const;
+	MemorySize getSize();
 };

@@ -205,6 +205,9 @@ MemoryPlacement Variable::getPlacement(label_t* array, size_t length) {
 
 	if (std::get_if<std::shared_ptr<ProcResPrototype>>(&this->proto)) {
 		/// TODO: handle starting with ProcResPrototype
+		logger.warn(
+			"getPlacement called with ProcResPrototype"
+		);
 		return {
 			.size = MEMORY_SIZE_UNKNOWN,
 			.offset = -1
@@ -226,7 +229,7 @@ MemoryPlacement Variable::getPlacement(label_t* array, size_t length) {
 					"UnresolvedMemberError",
 					std::format(
 						"Cannot resolve member '{}' from '{}'",
-						*labelPtr, current->name
+						*labelPtr, (current->name ? current->name : "(null)")
 					)
 				};
 			}
@@ -271,6 +274,21 @@ MemoryPlacement Variable::getPlacement(label_t* array, size_t length) {
 		position = this->position;
 	}
 
+
+	// Get size of the entire variable
+	if (length == 0) {
+		if (position->children == nullptr) {
+			return {
+				.size = cl->size,
+				.offset = 0
+			};
+		}
+
+		return {
+			.size = position->placement.size,
+			.offset = 0
+		};
+	}
 
 	// Run accross positions
 	int offset = 0;
@@ -359,14 +377,13 @@ MemoryPlacement Variable::getPlacement(label_t* array, size_t length) {
 	}
 
 	
-	/// TODO: return
 	return {size, offset};
-	
-
 }
 
 
-
+MemorySize Variable::getSize() {
+	return this->getPlacement(nullptr, 0).size;
+}
 
 
 
