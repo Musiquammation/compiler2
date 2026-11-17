@@ -42,6 +42,7 @@ public:
 	struct ICpy {
 		VarDesc dst;
 		VarDesc src;
+		size_t size;
 	};
 
 	struct IAdd {
@@ -213,16 +214,20 @@ public:
 	var_t create(label_t name, Prototype& proto, size_t level, bool createMeta = true);
 
 	var_t search(label_t name, size_t level);
-	var_t takeArgument(var_t v, size_t dstLevel, size_t srcLevel);	
 	var_t meta(var_t var, size_t level);
 	Variable& variable(var_t var, size_t level);
-
+	
+	var_t slip(var_t v, size_t dstLevel, size_t srcLevel);	
 
 
 
 	void append(const IncScope& ins, size_t lvl);
 	void append(const DecScope& ins, size_t lvl);
 	void append(const ISet& ins, size_t lvl);
+	void append(const ICpy& ins, size_t lvl);
+	void append(const IAdd& ins, size_t lvl);
+	void append(const IMul& ins, size_t lvl);
+	void append(const ISlip& ins, size_t lvl);
 
 };
 

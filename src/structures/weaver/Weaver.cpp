@@ -11,14 +11,16 @@
 #include <cstring>
 #include <fstream>
 #include <sys/types.h>
+#include <deque>
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
 #include <cstddef>
-#include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 static auto logger = getLogger("weaver");
+static auto exec_logger = getLogger("interpreter");
 
 
 #define STACK_CAPACITY ((size_t)1024)
@@ -52,13 +54,18 @@ struct Weaver::Level {
 	};
 
 	std::vector<Instruction> instructions;
-	std::vector<WVariable> variables;
+	// deque: keeps references valid and never copies Variable (raw owned pointer)
+	std::deque<WVariable> variables;
 	std::vector<Scope> scopes;
 	std::vector<var_t> args;
 	std::unordered_map<label_t, var_t> names;
 	std::vector<Stack> stacks;
 
 	size_t stackIdx = SIZE_MAX;
+
+	Level() = default;
+	Level(Level&&) noexcept = default;
+	Level& operator=(Level&&) noexcept = default;
 
 	void incScope();
 	void decScope();
@@ -222,14 +229,12 @@ Weaver::Level& Weaver::getLevel(size_t level) {
 
 Weaver::var_t Weaver::create(label_t name, Prototype& proto, size_t level, bool createMeta) {
 	logger.debug("create %s %d", name, (int)level);
-	var_t metaVar;
+	var_t metaVar = NO_VAR;
 	if (createMeta) {
 		auto meta = proto.getMeta();
 		if (meta){
 			metaVar = this->create(nullptr, *meta, level+1, true);
 		}
-	} else {
-		metaVar = NO_VAR;
 	}
 
 	auto& l = this->getLevel(level);
@@ -276,11 +281,11 @@ Weaver::var_t Weaver::search(label_t name, size_t lvl) {
 	return it->second;
 }
 
-Weaver::var_t Weaver::takeArgument(var_t v, size_t dstLevel, size_t srcLevel) {
-	auto& dst = this->getLevel(dstLevel);
-	auto& src = this->getLevel(srcLevel);
+Weaver::var_t Weaver::slip(var_t v, size_t dstLevel, size_t srcLevel) {
+	// Ensure both levels exist before taking references (resize invalidates them)
+	this->getLevel(std::max(dstLevel, srcLevel));
 
-	auto& source = src.get(v);
+	auto& source = this->levels[srcLevel].get(v);
 	auto arg = this->create(
 		nullptr,
 		source.v.proto,
@@ -288,20 +293,22 @@ Weaver::var_t Weaver::takeArgument(var_t v, size_t dstLevel, size_t srcLevel) {
 		false
 	);
 
-	if (source.meta) {
-		auto meta = this->takeArgument(source.meta, dstLevel+1, srcLevel+1);
-		auto& argument =this->getLevel(dstLevel).get(arg);
-		argument.meta = meta;
+	if (source.meta != NO_VAR) {
+		auto meta = this->slip(source.meta, dstLevel+1, srcLevel+1);
+		this->levels[dstLevel].get(arg).meta = meta;
 	}
 
+	auto& dst = this->levels[dstLevel];
 	auto argIdx = dst.args.size();
 	dst.args.push_back(arg);
 
-	src.instructions.push_back(ISlip{
+	this->levels[srcLevel].instructions.push_back(ISlip{
 		.src = v,
 		.dst = argIdx,
 		.level = dstLevel
 	});
+
+	exec_logger.debug("slip %zu@%zu to arg %zu@%zu", v, srcLevel, arg, dstLevel);
 
 	return arg;
 }
@@ -350,38 +357,113 @@ void Weaver::append(const Weaver::ISet& ins, size_t lvl) {
 	// Log data
 	switch (ins.size) {
 	case 1:
-		logger.debug("set %p to %hhu (%zu bytes)", ptr, *(uint8_t*)ptr, ins.size);
+		exec_logger.debug("set %p to %hhu (%zu bytes)", ptr, *(uint8_t*)ptr, ins.size);
 		break;
 	case 2:
-		logger.debug("set %p to %hu (%zu bytes)", ptr, *(uint16_t*)ptr, ins.size);
+		exec_logger.debug("set %p to %hu (%zu bytes)", ptr, *(uint16_t*)ptr, ins.size);
 		break;
 	case 4:
-		logger.debug("set %p to %u (%zu bytes)", ptr, *(uint32_t*)ptr, ins.size);
+		exec_logger.debug("set %p to %u (%zu bytes)", ptr, *(uint32_t*)ptr, ins.size);
 		break;
 	case 8:
-		logger.debug("set %p to %llu (%zu bytes)", ptr, *(uint64_t*)ptr, ins.size);
+		exec_logger.debug("set %p to %llu (%zu bytes)", ptr, *(uint64_t*)ptr, ins.size);
 		break;
 	default:
-		logger.debug("set to %p (%zu bytes)", ptr, ins.size);
+		exec_logger.debug("set to %p (%zu bytes)", ptr, ins.size);
 		break;
 }
 }
 
 
 
+void Weaver::append(const Weaver::ICpy& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	void* dst = (uint8_t*)level.get(ins.dst.variable).data + ins.dst.offset;
+	const void* src = (uint8_t*)level.get(ins.src.variable).data + ins.src.offset;
+	std::memmove(dst, src, ins.size);
+
+	exec_logger.debug("cpy %p to %p (%zu bytes)", src, dst, ins.size);
+}
+
+template<typename T>
+static void mulAs(void* dst, const void* src) {
+	T a, b;
+	std::memcpy(&a, dst, sizeof(T));
+	std::memcpy(&b, src, sizeof(T));
+	// unsigned multiplication: same bits as signed, without UB on overflow
+	using U = std::make_unsigned_t<T>;
+	T r = (T)((U)a * (U)b);
+	std::memcpy(dst, &r, sizeof(T));
+	exec_logger.debug("mul %p = %lld (%zu bytes)", dst, (long long)r, sizeof(T));
+}
+
+void Weaver::append(const Weaver::IMul& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	auto& dst = level.get(ins.dst);
+	auto& src = level.get(ins.src);
+	auto size = dst.v.proto.evalQuickSize().size;
+
+	if (src.v.proto.evalQuickSize().size != size) {
+		throw createStructureError(
+			"WeaverSizeMismatch",
+			std::format("IMul operands differ in size ({})", (int)size)
+		);
+	}
+
+	switch (size) {
+	case 1: mulAs<int8_t>(dst.data, src.data); break;
+	case 2: mulAs<int16_t>(dst.data, src.data); break;
+	case 4: mulAs<int32_t>(dst.data, src.data); break;
+	case 8: mulAs<int64_t>(dst.data, src.data); break;
+	default:
+		throw createStructureError(
+			"WeaverInvalidSize",
+			std::format("IMul on unsupported size {}", (int)size)
+		);
+	}
+}
 
 
 
+template<typename T>
+static void addAs(void* dst, const void* src) {
+	T a, b;
+	std::memcpy(&a, dst, sizeof(T));
+	std::memcpy(&b, src, sizeof(T));
+	using U = std::make_unsigned_t<T>;
+	T r = (T)((U)a + (U)b);
+	std::memcpy(dst, &r, sizeof(T));
+	exec_logger.debug("add %p = %lld (%zu bytes)", dst, (long long)r, sizeof(T));
+}
 
+void Weaver::append(const Weaver::IAdd& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
 
+	auto& dst = level.get(ins.dst);
+	auto& src = level.get(ins.src);
+	auto size = dst.v.proto.evalQuickSize().size;
 
+	if (src.v.proto.evalQuickSize().size != size) {
+		throw createStructureError(
+			"WeaverSizeMismatch",
+			std::format("IAdd operands differ in size ({})", (int)size)
+		);
+	}
 
-
-
-
-
-
-
-
-
-
+	switch (size) {
+	case 1: addAs<int8_t>(dst.data, src.data); break;
+	case 2: addAs<int16_t>(dst.data, src.data); break;
+	case 4: addAs<int32_t>(dst.data, src.data); break;
+	case 8: addAs<int64_t>(dst.data, src.data); break;
+	default:
+		throw createStructureError(
+			"WeaverInvalidSize",
+			std::format("IAdd on unsupported size {}", (int)size)
+		);
+	}
+}

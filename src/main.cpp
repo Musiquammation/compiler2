@@ -314,6 +314,18 @@ void runTest(Logger& logger) {
 
 
 	// function test
+	/*
+	function test {
+		let a = Integer[value: 0, valueIsKnown: false, sign: 0]{number: 5};
+		let b! = Integer{10};
+		let c = a.number + 3*b.number;
+		let d = a.number + b::value;
+		let e = d+c;
+		return e;
+	}
+
+	Levels: 0 = runtime (append without level, TODO), 1 = meta of runtime vars
+	*/
 	{
 		auto fn = Function{
 			.args = {},
@@ -326,109 +338,116 @@ void runTest(Logger& logger) {
 		Weaver weaver{fn.args, stream};
 
 		Prototype proto_Integer {RealPrototype::create({cl.Integer.get()}, {})};
+		Prototype proto_Int{proto_int};
+		[[maybe_unused]] size_t intSize = (size_t)proto_Int.evalQuickSize().size;
+
+		// Set a member of var (level lvl >= 1) to an immediate value
+		auto setMember = [&](size_t var, size_t lvl, label_t member, uint64_t value) {
+			label_t members[] = {member};
+			auto placement = weaver.variable(var, lvl).getPlacement(members, 1);
+			weaver.append(Weaver::ISet{
+				.dst = {.variable = var, .offset = (size_t)placement.offset},
+				.arg = value,
+				.size = (size_t)placement.size.size
+			}, lvl);
+		};
+
+		label_t number[] = {"number"};
+
+
+		// let a = Integer[value: 0, valueIsKnown: false, sign: 0]{number: 5};
 		auto a = weaver.create("a", proto_Integer, 0);
-		auto var_a = weaver.variable(a, 0);
-
 		auto meta_a = weaver.meta(a, 0);
-		auto var_meta_a = weaver.variable(meta_a, 1);
+		setMember(meta_a, 1, "value", 0);
+		setMember(meta_a, 1, "valueIsKnown", 0);
+		setMember(meta_a, 1, "sign", 0);
 
-		// Set a::value to 0
+		[[maybe_unused]] auto a_number = weaver.variable(a, 0).getPlacement(number, 1);
+		// weaver.append(Weaver::ISet{
+		// 	.dst = {.variable = a, .offset = (size_t)a_number.offset},
+		// 	.arg = 5,
+		// 	.size = (size_t)a_number.size.size
+		// });
+
+
+		// let b! = Integer{10};
+		auto b = weaver.create("b", proto_Integer, 0);
+		auto meta_b = weaver.meta(b, 0);
+		setMember(meta_b, 1, "value", 10);
+		setMember(meta_b, 1, "valueIsKnown", 1);
+		setMember(meta_b, 1, "sign", 1);
+
+		[[maybe_unused]] auto b_number = weaver.variable(b, 0).getPlacement(number, 1);
+		// weaver.append(Weaver::ISet{
+		// 	.dst = {.variable = b, .offset = (size_t)b_number.offset},
+		// 	.arg = 10,
+		// 	.size = (size_t)b_number.size.size
+		// });
+
+
+		// let c = a.number + 3*b.number;   (fully runtime)
+		[[maybe_unused]] auto c = weaver.create("c", proto_Int, 0);
 		{
-			label_t members[] = {"value"};
-			auto placement = var_meta_a.getPlacement(members, 1);
-			weaver.append(Weaver::ISet{
-				.dst = {.variable = meta_a, .offset = (size_t)placement.offset},
-				.arg = 0,
-				.size = (size_t)placement.size.size
-			}, 1);
+			[[maybe_unused]] auto k = weaver.create(nullptr, proto_Int, 0);
+			[[maybe_unused]] auto bn = weaver.create(nullptr, proto_Int, 0);
+
+			// weaver.append(Weaver::ISet{
+			// 	.dst = {.variable = k, .offset = 0},
+			// 	.arg = 3,
+			// 	.size = intSize
+			// });
+			// weaver.append(Weaver::ICpy{
+			// 	.dst = {.variable = bn, .offset = 0},
+			// 	.src = {.variable = b, .offset = (size_t)b_number.offset},
+			// 	.size = (size_t)b_number.size.size
+			// });
+			// weaver.append(Weaver::IMul{.dst = k, .src = bn});
+			// weaver.append(Weaver::ICpy{
+			// 	.dst = {.variable = c, .offset = 0},
+			// 	.src = {.variable = a, .offset = (size_t)a_number.offset},
+			// 	.size = (size_t)a_number.size.size
+			// });
+			// weaver.append(Weaver::IAdd{.dst = c, .src = k});
 		}
 
-		// Set a::valueIsKnown to 0
+
+		// let d = a.number + b::value;
+		[[maybe_unused]] auto d = weaver.create("d", proto_Int, 0);
 		{
-			label_t members[] = {"valueIsKnown"};
-			auto placement = var_meta_a.getPlacement(members, 1);
-			weaver.append(Weaver::ISet{
-				.dst = {.variable = meta_a, .offset = (size_t)placement.offset},
-				.arg = 0,
-				.size = (size_t)placement.size.size
-			}, 1);
-		}
-
-		// Set a::sign to 0
-		{
-			label_t members[] = {"sign"};
-			auto placement = var_meta_a.getPlacement(members, 1);
-			weaver.append(Weaver::ISet{
-				.dst = {.variable = meta_a, .offset = (size_t)placement.offset},
-				.arg = 0,
-				.size = (size_t)placement.size.size
-			}, 1);
-		}
-
-		// Set a.number to 5
-		/*{
-			label_t members[] = {"number"};
-			auto placement = var_a.getPlacement(members, 1);
-			weaver.append(Weaver::ISet{
-				.dst = {.variable = a, .offset = (size_t)placement.offset},
-				.arg = 0,
-				.size = (size_t)placement.size.size
-			}, 0);
-		}*/
-
-
-		// Construct b = Integer{10}
-		auto b = weaver.create("b", proto_Integer, 1);
-		auto var_b = weaver.variable(b, 1);
-
-		auto meta_b = weaver.meta(b, 1);
-		auto var_meta_b = weaver.variable(meta_b, 2);
-
-
-		{
-			// Set b::value to 10
+			// level 1: bv = b::value, then slipped to runtime
+			auto bv = weaver.create(nullptr, proto_Int, 1);
 			{
 				label_t members[] = {"value"};
-				auto placement = var_meta_b.getPlacement(members, 1);
-				weaver.append(Weaver::ISet{
-					.dst = {.variable = meta_b, .offset = (size_t)placement.offset},
-					.arg = 10,
-					.size = (size_t)placement.size.size
-				}, 2);
-			}
-			
-			// Set b::valueIsKnown to 1
-			{
-				label_t members[] = {"valueIsKnown"};
-				auto placement = var_meta_b.getPlacement(members, 1);
-				weaver.append(Weaver::ISet{
-					.dst = {.variable = meta_b, .offset = (size_t)placement.offset},
-					.arg = 1,
-					.size = (size_t)placement.size.size
-				}, 2);
-			}
-			// Set b::sign to 1
-			{
-				label_t members[] = {"sign"};
-				auto placement = var_meta_b.getPlacement(members, 1);
-				weaver.append(Weaver::ISet{
-					.dst = {.variable = meta_b, .offset = (size_t)placement.offset},
-					.arg = 1,
-					.size = (size_t)placement.size.size
-				}, 2);
-			}
-
-			// Set b.number to 10
-			{
-				label_t members[] = {"number"};
-				auto placement = var_b.getPlacement(members, 1);
-				weaver.append(Weaver::ISet{
-					.dst = {.variable = b, .offset = (size_t)placement.offset},
-					.arg = 10,
+				auto placement = weaver.variable(meta_b, 1).getPlacement(members, 1);
+				weaver.append(Weaver::ICpy{
+					.dst = {.variable = bv, .offset = 0},
+					.src = {.variable = meta_b, .offset = (size_t)placement.offset},
 					.size = (size_t)placement.size.size
 				}, 1);
 			}
+			[[maybe_unused]] auto bv_arg = weaver.slip(bv, 0, 1);
+
+			// weaver.append(Weaver::ICpy{
+			// 	.dst = {.variable = d, .offset = 0},
+			// 	.src = {.variable = a, .offset = (size_t)a_number.offset},
+			// 	.size = (size_t)a_number.size.size
+			// });
+			// weaver.append(Weaver::IAdd{.dst = d, .src = bv_arg});
 		}
+
+
+		// let e = d+c;
+		[[maybe_unused]] auto e = weaver.create("e", proto_Int, 0);
+		// weaver.append(Weaver::ICpy{
+		// 	.dst = {.variable = e, .offset = 0},
+		// 	.src = {.variable = d, .offset = 0},
+		// 	.size = intSize
+		// });
+		// weaver.append(Weaver::IAdd{.dst = e, .src = c});
+
+
+		// return e;
+		// weaver.append(Weaver::IReturn{.src = {.variable = e, .offset = 0}});
 	}
 
 
