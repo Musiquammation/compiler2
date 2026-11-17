@@ -410,16 +410,16 @@ Variable& Weaver::variable(var_t var, size_t level) {
 
 
 
-void Weaver::append(const Weaver::IncScope& ins, size_t lvl) {
+void Weaver::incScope(size_t lvl) {
 	auto& level = this->levels[lvl];
-	level.instructions.push_back(ins);
+	level.instructions.push_back(Weaver::IncScope{});
 	
 	level.incScope();
 }
 
-void Weaver::append(const Weaver::DecScope& ins, size_t lvl) {
+void Weaver::decScope(size_t lvl) {
 	auto& level = this->levels[lvl];
-	level.instructions.push_back(ins);
+	level.instructions.push_back(Weaver::DecScope{});
 
 	level.decScope();
 }
@@ -469,83 +469,248 @@ void Weaver::append(const Weaver::ICpy& ins, size_t lvl) {
 	exec_logger.debug("cpy %p to %p (%zu bytes)", src, dst, ins.size);
 }
 
+// Integer operations
+//
+// Values are handled as signed integers of the variable's size.
+// Wrapping arithmetic goes through the unsigned type: same bits, no UB.
+
+// Calls op.template operator()<T>() with the signed integer type of `size`
+template<typename Op>
+static void dispatchSize(size_t size, const char* name, Op&& op) {
+	switch (size) {
+	case 1: op.template operator()<int8_t>(); break;
+	case 2: op.template operator()<int16_t>(); break;
+	case 4: op.template operator()<int32_t>(); break;
+	case 8: op.template operator()<int64_t>(); break;
+	default:
+		throw createStructureError(
+			"WeaverInvalidSize",
+			std::format("{} on unsupported size {}", name, size)
+		);
+	}
+}
+
+static uint64_t readUnsigned(const void* src, size_t size) {
+	switch (size) {
+	case 1: { uint8_t v;  std::memcpy(&v, src, 1); return v; }
+	case 2: { uint16_t v; std::memcpy(&v, src, 2); return v; }
+	case 4: { uint32_t v; std::memcpy(&v, src, 4); return v; }
+	case 8: { uint64_t v; std::memcpy(&v, src, 8); return v; }
+	default:
+		throw createStructureError(
+			"WeaverInvalidSize",
+			std::format("Cannot read integer of size {}", size)
+		);
+	}
+}
+
+// dst = op(dst, src), both operands of the same size
+template<typename W, typename Op>
+static void binaryOp(W& dst, W& src, const char* name, Op op) {
+	size_t size = (size_t)dst.v.proto.evalQuickSize().size;
+
+	if ((size_t)src.v.proto.evalQuickSize().size != size) {
+		throw createStructureError(
+			"WeaverSizeMismatch",
+			std::format("{} operands differ in size ({})", name, size)
+		);
+	}
+
+	dispatchSize(size, name, [&]<typename T>() {
+		T a, b;
+		std::memcpy(&a, dst.data, sizeof(T));
+		std::memcpy(&b, src.data, sizeof(T));
+		T r = op.template operator()<T>(a, b);
+		std::memcpy(dst.data, &r, sizeof(T));
+		exec_logger.debug("%s %p = %lld (%zu bytes)", name, dst.data, (long long)r, sizeof(T));
+	});
+}
+
+// dst = op(dst, count), the shift count may have any integer size
+template<typename W, typename Op>
+static void shiftOp(W& dst, W& src, const char* name, Op op) {
+	size_t size = (size_t)dst.v.proto.evalQuickSize().size;
+	uint64_t count = readUnsigned(src.data, (size_t)src.v.proto.evalQuickSize().size);
+
+	dispatchSize(size, name, [&]<typename T>() {
+		T a;
+		std::memcpy(&a, dst.data, sizeof(T));
+		T r = op.template operator()<T>(a, count);
+		std::memcpy(dst.data, &r, sizeof(T));
+		exec_logger.debug("%s %p = %lld (%zu bytes)", name, dst.data, (long long)r, sizeof(T));
+	});
+}
+
+// dst = op(dst)
+template<typename W, typename Op>
+static void unaryOp(W& dst, const char* name, Op op) {
+	size_t size = (size_t)dst.v.proto.evalQuickSize().size;
+
+	dispatchSize(size, name, [&]<typename T>() {
+		T a;
+		std::memcpy(&a, dst.data, sizeof(T));
+		T r = op.template operator()<T>(a);
+		std::memcpy(dst.data, &r, sizeof(T));
+		exec_logger.debug("%s %p = %lld (%zu bytes)", name, dst.data, (long long)r, sizeof(T));
+	});
+}
+
 template<typename T>
-static void mulAs(void* dst, const void* src) {
-	T a, b;
-	std::memcpy(&a, dst, sizeof(T));
-	std::memcpy(&b, src, sizeof(T));
-	// unsigned multiplication: same bits as signed, without UB on overflow
-	using U = std::make_unsigned_t<T>;
-	T r = (T)((U)a * (U)b);
-	std::memcpy(dst, &r, sizeof(T));
-	exec_logger.debug("mul %p = %lld (%zu bytes)", dst, (long long)r, sizeof(T));
+using U_t = std::make_unsigned_t<T>;
+
+static void checkDivisor(int64_t b, const char* name) {
+	if (b == 0) {
+		throw createStructureError(
+			"WeaverDivisionByZero",
+			std::format("{} by zero", name)
+		);
+	}
+}
+
+
+void Weaver::append(const Weaver::IAdd& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	binaryOp(level.get(ins.dst), level.get(ins.src), "add", []<typename T>(T a, T b) {
+		return (T)((U_t<T>)a + (U_t<T>)b);
+	});
+}
+
+void Weaver::append(const Weaver::ISub& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	binaryOp(level.get(ins.dst), level.get(ins.src), "sub", []<typename T>(T a, T b) {
+		return (T)((U_t<T>)a - (U_t<T>)b);
+	});
 }
 
 void Weaver::append(const Weaver::IMul& ins, size_t lvl) {
 	auto& level = this->levels[lvl];
 	level.instructions.push_back(ins);
 
-	auto& dst = level.get(ins.dst);
-	auto& src = level.get(ins.src);
-	auto size = dst.v.proto.evalQuickSize().size;
-
-	if (src.v.proto.evalQuickSize().size != size) {
-		throw createStructureError(
-			"WeaverSizeMismatch",
-			std::format("IMul operands differ in size ({})", (int)size)
-		);
-	}
-
-	switch (size) {
-	case 1: mulAs<int8_t>(dst.data, src.data); break;
-	case 2: mulAs<int16_t>(dst.data, src.data); break;
-	case 4: mulAs<int32_t>(dst.data, src.data); break;
-	case 8: mulAs<int64_t>(dst.data, src.data); break;
-	default:
-		throw createStructureError(
-			"WeaverInvalidSize",
-			std::format("IMul on unsupported size {}", (int)size)
-		);
-	}
+	binaryOp(level.get(ins.dst), level.get(ins.src), "mul", []<typename T>(T a, T b) {
+		return (T)((U_t<T>)a * (U_t<T>)b);
+	});
 }
 
-
-
-template<typename T>
-static void addAs(void* dst, const void* src) {
-	T a, b;
-	std::memcpy(&a, dst, sizeof(T));
-	std::memcpy(&b, src, sizeof(T));
-	using U = std::make_unsigned_t<T>;
-	T r = (T)((U)a + (U)b);
-	std::memcpy(dst, &r, sizeof(T));
-	exec_logger.debug("add %p = %lld (%zu bytes)", dst, (long long)r, sizeof(T));
-}
-
-void Weaver::append(const Weaver::IAdd& ins, size_t lvl) {
+void Weaver::append(const Weaver::IDiv& ins, size_t lvl) {
 	auto& level = this->levels[lvl];
 	level.instructions.push_back(ins);
 
-	auto& dst = level.get(ins.dst);
-	auto& src = level.get(ins.src);
-	auto size = dst.v.proto.evalQuickSize().size;
+	binaryOp(level.get(ins.dst), level.get(ins.src), "div", []<typename T>(T a, T b) {
+		checkDivisor(b, "div");
+		// MIN / -1 overflows: wrap to MIN
+		if (b == -1) return (T)((U_t<T>)0 - (U_t<T>)a);
+		return (T)(a / b);
+	});
+}
 
-	if (src.v.proto.evalQuickSize().size != size) {
-		throw createStructureError(
-			"WeaverSizeMismatch",
-			std::format("IAdd operands differ in size ({})", (int)size)
-		);
-	}
+void Weaver::append(const Weaver::IMod& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
 
-	switch (size) {
-	case 1: addAs<int8_t>(dst.data, src.data); break;
-	case 2: addAs<int16_t>(dst.data, src.data); break;
-	case 4: addAs<int32_t>(dst.data, src.data); break;
-	case 8: addAs<int64_t>(dst.data, src.data); break;
-	default:
-		throw createStructureError(
-			"WeaverInvalidSize",
-			std::format("IAdd on unsupported size {}", (int)size)
-		);
-	}
+	binaryOp(level.get(ins.dst), level.get(ins.src), "mod", []<typename T>(T a, T b) {
+		checkDivisor(b, "mod");
+		if (b == -1) return (T)0;
+		return (T)(a % b);
+	});
+}
+
+void Weaver::append(const Weaver::IAnd& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	binaryOp(level.get(ins.dst), level.get(ins.src), "and", []<typename T>(T a, T b) {
+		return (T)(a & b);
+	});
+}
+
+void Weaver::append(const Weaver::IOr& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	binaryOp(level.get(ins.dst), level.get(ins.src), "or", []<typename T>(T a, T b) {
+		return (T)(a | b);
+	});
+}
+
+void Weaver::append(const Weaver::IXor& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	binaryOp(level.get(ins.dst), level.get(ins.src), "xor", []<typename T>(T a, T b) {
+		return (T)(a ^ b);
+	});
+}
+
+// Shifts: a count >= bit width shifts every bit out
+
+void Weaver::append(const Weaver::IShl& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	shiftOp(level.get(ins.dst), level.get(ins.src), "shl", []<typename T>(T a, uint64_t n) {
+		if (n >= sizeof(T) * 8) return (T)0;
+		return (T)((U_t<T>)a << n);
+	});
+}
+
+void Weaver::append(const Weaver::IShr& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	// Logical: fills with zeros
+	shiftOp(level.get(ins.dst), level.get(ins.src), "shr", []<typename T>(T a, uint64_t n) {
+		if (n >= sizeof(T) * 8) return (T)0;
+		return (T)((U_t<T>)a >> n);
+	});
+}
+
+void Weaver::append(const Weaver::ISar& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	// Arithmetic: fills with the sign bit
+	shiftOp(level.get(ins.dst), level.get(ins.src), "sar", []<typename T>(T a, uint64_t n) {
+		if (n >= sizeof(T) * 8) return (T)(a < 0 ? -1 : 0);
+		return (T)(a >> n);
+	});
+}
+
+void Weaver::append(const Weaver::INot& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	unaryOp(level.get(ins.dst), "not", []<typename T>(T a) {
+		return (T)~a;
+	});
+}
+
+void Weaver::append(const Weaver::INeg& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	unaryOp(level.get(ins.dst), "neg", []<typename T>(T a) {
+		return (T)((U_t<T>)0 - (U_t<T>)a);
+	});
+}
+
+void Weaver::append(const Weaver::IInc& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	unaryOp(level.get(ins.dst), "inc", []<typename T>(T a) {
+		return (T)((U_t<T>)a + 1);
+	});
+}
+
+void Weaver::append(const Weaver::IDec& ins, size_t lvl) {
+	auto& level = this->levels[lvl];
+	level.instructions.push_back(ins);
+
+	unaryOp(level.get(ins.dst), "dec", []<typename T>(T a) {
+		return (T)((U_t<T>)a - 1);
+	});
 }

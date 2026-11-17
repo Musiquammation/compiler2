@@ -221,14 +221,26 @@ public:
 	
 	var_t slip(var_t v, size_t dstLevel, size_t srcLevel);	
 
+	void incScope(size_t lvl);
+	void decScope(size_t lvl);
 
-
-	void append(const IncScope& ins, size_t lvl);
-	void append(const DecScope& ins, size_t lvl);
 	void append(const ISet& ins, size_t lvl);
 	void append(const ICpy& ins, size_t lvl);
 	void append(const IAdd& ins, size_t lvl);
+	void append(const ISub& ins, size_t lvl);
 	void append(const IMul& ins, size_t lvl);
+	void append(const IDiv& ins, size_t lvl);
+	void append(const IMod& ins, size_t lvl);
+	void append(const IAnd& ins, size_t lvl);
+	void append(const IOr& ins, size_t lvl);
+	void append(const IXor& ins, size_t lvl);
+	void append(const INot& ins, size_t lvl);
+	void append(const INeg& ins, size_t lvl);
+	void append(const IShl& ins, size_t lvl);
+	void append(const IShr& ins, size_t lvl);
+	void append(const ISar& ins, size_t lvl);
+	void append(const IInc& ins, size_t lvl);
+	void append(const IDec& ins, size_t lvl);
 	void append(const ISlip& ins, size_t lvl);
 
 };
