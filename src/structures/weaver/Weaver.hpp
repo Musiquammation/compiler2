@@ -16,6 +16,8 @@ class Weaver {
 	using var_t = size_t;
 
 	static constexpr var_t NO_VAR = SIZE_MAX;
+	// Tags ids of slipped variables (stored apart from regular ones)
+	static constexpr var_t SLIP_BIT = (var_t)1 << (sizeof(var_t) * 8 - 1);
 
 
 public:

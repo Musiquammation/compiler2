@@ -18,6 +18,9 @@
 #include <cstddef>
 #include <type_traits>
 #include <utility>
+#include <memory>
+#include <new>
+#include <format>
 
 static auto logger = getLogger("weaver");
 static auto exec_logger = getLogger("interpreter");
@@ -53,9 +56,21 @@ struct Weaver::Level {
 		size_t stackIdx;
 	};
 
+	struct AlignedFree {
+		size_t align;
+		void operator()(void* p) const {
+			::operator delete(p, std::align_val_t{align});
+		}
+	};
+
 	std::vector<Instruction> instructions;
 	// deque: keeps references valid and never copies Variable (raw owned pointer)
 	std::deque<WVariable> variables;
+	// Slipped variables live in the level's main scope: they are never
+	// erased by decScope and never shift the ids of regular variables.
+	// Their ids are tagged with SLIP_BIT.
+	std::deque<WVariable> slips;
+	std::vector<std::unique_ptr<void, AlignedFree>> slipBuffers;
 	std::vector<Scope> scopes;
 	std::vector<var_t> args;
 	std::unordered_map<label_t, var_t> names;
@@ -70,6 +85,11 @@ struct Weaver::Level {
 	void incScope();
 	void decScope();
 	WVariable& get(var_t v);
+	var_t search(label_t name) const;
+
+	static bool isSlip(var_t v) { return v != NO_VAR && (v & SLIP_BIT); }
+	var_t createSlip(label_t name, Prototype& proto, bool allocateData);
+	size_t pushArg(var_t v);
 
 	void* allocate(size_t size, size_t offset);
 };
@@ -191,6 +211,17 @@ void Weaver::Level::decScope() {
 // Variables
 
 Weaver::WVariable& Weaver::Level::get(var_t v) {
+	if (isSlip(v)) {
+		size_t idx = v & ~SLIP_BIT;
+		if (idx >= slips.size()) {
+			throw createStructureError(
+				"WeaverVariableOutOfBounds",
+				std::format("Slip index out of bounds: {}", idx)
+			);
+		}
+		return slips[idx];
+	}
+
 	if (v >= variables.size()) {
 		throw createStructureError(
 			"WeaverVariableOutOfBounds",
@@ -199,6 +230,46 @@ Weaver::WVariable& Weaver::Level::get(var_t v) {
 	}
 
 	return variables[v];
+}
+
+Weaver::var_t Weaver::Level::search(label_t name) const {
+	auto it = names.find(name);
+	if (it != names.end()) {
+		return it->second;
+	}
+
+	return NO_VAR;
+}
+
+Weaver::var_t Weaver::Level::createSlip(label_t name, Prototype& proto, bool allocateData) {
+	var_t id = slips.size() | SLIP_BIT;
+
+	void* data = nullptr;
+	if (allocateData) {
+		auto size = proto.evalQuickSize();
+		size_t bytes = std::max<size_t>(1, (size_t)size.size);
+		size_t align = std::max<size_t>(alignof(std::max_align_t), (size_t)size.align);
+
+		// Own heap buffer: outlives every scope of this level
+		slipBuffers.emplace_back(
+			::operator new(bytes, std::align_val_t{align}),
+			AlignedFree{align}
+		);
+		data = slipBuffers.back().get();
+		std::memset(data, 0, bytes);
+	}
+
+	if (name) {
+		names[name] = id;
+	}
+
+	slips.emplace_back(Variable{name, proto}, NO_VAR, data);
+	return id;
+}
+
+size_t Weaver::Level::pushArg(var_t v) {
+	args.push_back(v);
+	return args.size() - 1;
 }
 
 
@@ -262,8 +333,8 @@ Weaver::var_t Weaver::create(label_t name, Prototype& proto, size_t level, bool 
 
 Weaver::var_t Weaver::search(label_t name, size_t lvl) {
 	auto& level = this->getLevel(lvl);
-	auto it = level.names.find(name);
-	if (it == level.names.end()) {
+	auto found = level.search(name);
+	if (found == NO_VAR) {
 		/// TODO: every level will have arguments 
 		if (lvl == 0) {
 			for (auto& arg: this->args) {
@@ -278,37 +349,48 @@ Weaver::var_t Weaver::search(label_t name, size_t lvl) {
 		);
 	}
 
-	return it->second;
+	return found;
 }
 
 Weaver::var_t Weaver::slip(var_t v, size_t dstLevel, size_t srcLevel) {
 	// Ensure both levels exist before taking references (resize invalidates them)
 	this->getLevel(std::max(dstLevel, srcLevel));
 
-	auto& source = this->levels[srcLevel].get(v);
-	auto arg = this->create(
-		nullptr,
-		source.v.proto,
-		dstLevel,
-		false
-	);
-
-	if (source.meta != NO_VAR) {
-		auto meta = this->slip(source.meta, dstLevel+1, srcLevel+1);
-		this->levels[dstLevel].get(arg).meta = meta;
+	// Metas first: the recursive call may resize `levels`
+	var_t srcMeta = this->levels[srcLevel].get(v).meta;
+	var_t dstMeta = NO_VAR;
+	if (srcMeta != NO_VAR) {
+		dstMeta = this->slip(srcMeta, dstLevel+1, srcLevel+1);
 	}
 
-	auto& dst = this->levels[dstLevel];
-	auto argIdx = dst.args.size();
-	dst.args.push_back(arg);
+	auto& srcLvl = this->levels[srcLevel];
+	auto& dstLvl = this->levels[dstLevel];
+	auto& source = srcLvl.get(v);
 
-	this->levels[srcLevel].instructions.push_back(ISlip{
+	// Level 0 is the runtime level: no data is held there
+	bool hasData = dstLevel != 0;
+	auto arg = dstLvl.createSlip(nullptr, source.v.proto, hasData);
+	auto& target = dstLvl.get(arg);
+	target.meta = dstMeta;
+
+	// Actually pass the value to the destination level
+	if (hasData && source.data && target.data) {
+		size_t size = (size_t)source.v.proto.evalQuickSize().size;
+		std::memcpy(target.data, source.data, size);
+	}
+
+	auto argIdx = dstLvl.pushArg(arg);
+
+	srcLvl.instructions.push_back(ISlip{
 		.src = v,
 		.dst = argIdx,
 		.level = dstLevel
 	});
 
-	exec_logger.debug("slip %zu@%zu to arg %zu@%zu", v, srcLevel, arg, dstLevel);
+	exec_logger.debug(
+		"slip %zu@%zu to arg %zu (slip %zu)@%zu",
+		v, srcLevel, argIdx, arg & ~SLIP_BIT, dstLevel
+	);
 
 	return arg;
 }
